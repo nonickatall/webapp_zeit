@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titel %}Zeiterfassung{% endblock %} – Verwaltung</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='zeit.css') }}">
+<script src="{{ url_for('static', filename='zeit.js') }}" defer></script>
+</head>
+<body {% if not oeffentlich %}data-leerlauf-sek="{{ config_leerlauf }}"{% endif %}>
+<header class="kopf">
+    <div class="titel">Zeiterfassung – Verwaltung</div>
+    {% if not oeffentlich and g.mu %}
+    <nav>
+        <a href="{{ url_for('anwesenheit') }}" class="{{ 'aktiv' if seite == 'anwesenheit' }}">Anwesenheit</a>
+        <a href="{{ url_for('datensaetze') }}" class="{{ 'aktiv' if seite == 'datensaetze' }}">Datensätze</a>
+        <a href="{{ url_for('offen') }}" class="{{ 'aktiv' if seite == 'offen' }}">Offene Fälle</a>
+        <a href="{{ url_for('zeitregeln') }}" class="{{ 'aktiv' if seite == 'zeitregeln' }}">Zeitregeln</a>
+        <a href="{{ url_for('summen') }}" class="{{ 'aktiv' if seite == 'summen' }}">Monatssummen</a>
+    </nav>
+    <form method="post" action="{{ url_for('abmelden') }}" class="abmelden">
+        <span>{{ g.mu.name }}</span>
+        <button type="submit">Abmelden</button>
+    </form>
+    {% endif %}
+</header>
+<main>
+{% block inhalt %}{% endblock %}
+</main>
+</body>
+</html>

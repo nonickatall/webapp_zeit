@@ -1,0 +1,20 @@
+{# eine Zeile Zeitdatensatz; Markierungen: korrigiert, automatisch_beendet, ohne Zeitregel, offen #}
+<tr class="{{ 'warnung' if r.status != 'abgeschlossen' or r.pause_minuten is none }}">
+    {% if mit_name %}<td>{{ r.name or ('? (' ~ r.user_id ~ ')') }}</td>{% endif %}
+    <td>{{ r.kommen | zeit }}</td>
+    <td>{{ r.gehen | zeit }}</td>
+    <td class="zahl">{{ r.minuten | dauer }}</td>
+    <td class="zahl">{{ r.pause_minuten | dauer }}</td>
+    <td class="zahl">{{ r.korrektur_minuten | dauer }}</td>
+    <td class="zahl">{{ r.netto_minuten | dauer }}</td>
+    <td>
+        {% if r.status == 'offen' %}<span class="marke gelb">offen</span>
+        {% elif r.status == 'automatisch_beendet' %}<span class="marke rot">automatisch beendet</span>
+        {% else %}abgeschlossen{% endif %}
+        {% if r.status == 'abgeschlossen' and r.pause_minuten is none %}<span class="marke rot">ohne Zeitregel</span>{% endif %}
+        {% if r.korrigiert %}<span class="marke blau">korrigiert</span>{% endif %}
+    </td>
+    <td>{{ r.terminal_kommen or '–' }}{% if r.terminal_gehen and r.terminal_gehen != r.terminal_kommen %} / {{ r.terminal_gehen }}{% endif %}</td>
+    <td>{{ 'ja' if r.manuell else 'nein' }}</td>
+    <td><a href="{{ url_for('datensatz', ze_id=r.id) }}">{{ r.id }}</a></td>
+</tr>

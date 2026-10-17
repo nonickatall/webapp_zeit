@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titel %}Monatssummen{% endblock %}
+{% block inhalt %}
+<h1>Summen je Mitarbeiter</h1>
+<form method="get" class="filter">
+    <label>Monat <input type="month" name="monat" value="{{ monat }}"></label>
+    <button type="submit">Anzeigen</button>
+    <a class="knopf" href="{{ url_for('summen_csv', monat=monat) }}">CSV</a>
+</form>
+<p class="fuss">Zeitraum {{ von.strftime('%d.%m.%Y') }} – {{ bis.strftime('%d.%m.%Y') }} (Kommen im Monat, Ortszeit).</p>
+{% if not zeilen %}
+<p class="leer">Keine Datensätze in diesem Monat.</p>
+{% else %}
+<table>
+<thead><tr><th>Mitarbeiter</th><th>Tage</th><th>Datensätze</th><th>Brutto</th><th>Pause</th><th>Netto</th>
+<th>Offen</th><th>Ohne Zeitregel</th><th>Autom. beendet</th></tr></thead>
+<tbody>{% for s in zeilen %}
+<tr class="{{ 'warnung' if not s.netto_vollstaendig }}">
+<td><a href="{{ url_for('datensaetze', user=s.user_id, von=von.isoformat(), bis=bis.isoformat()) }}">{{ s.name or ('? (' ~ s.user_id ~ ')') }}</a></td>
+<td class="zahl">{{ s.tage }}</td><td class="zahl">{{ s.datensaetze }}</td>
+<td class="zahl">{{ s.brutto | dauer }}</td><td class="zahl">{{ s.pause | dauer }}</td>
+<td class="zahl">{{ s.netto | dauer }}{% if not s.netto_vollstaendig %} <span class="marke rot">unvollständig</span>{% endif %}</td>
+<td class="zahl">{{ s.offen }}</td><td class="zahl">{{ s.ohne_regel }}</td><td class="zahl">{{ s.auto }}</td></tr>
+{% endfor %}</tbody>
+</table>
+<p class="fuss">Netto zählt nur abgeschlossene Datensätze mit Pause. „Unvollständig“, solange offene, automatisch beendete oder Datensätze ohne Zeitregel im Monat liegen.</p>
+{% endif %}
+{% endblock %}

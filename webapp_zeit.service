@@ -1,0 +1,18 @@
+[Unit]
+Description=myhome webapp_zeit — Verwaltung der Zeiterfassung (HTTPS, Port 5010)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=myhome
+WorkingDirectory=/etc/webapp_zeit
+EnvironmentFile=/etc/webapp_zeit/.env
+ExecStart=/etc/webapp_zeit/venv/bin/gunicorn -w 2 -b 0.0.0.0:5010 \
+    --certfile /etc/webapp_zeit/tls/zeit.crt --keyfile /etc/webapp_zeit/tls/zeit.key \
+    zeit_web:app
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

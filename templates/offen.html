@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titel %}Offene Fälle{% endblock %}
+{% block inhalt %}
+<h1>Offene Fälle</h1>
+{% set mit_name = true %}
+{% for titel, schluessel in [("Automatisch beendet (Gehen fehlt)", "automatisch_beendet"),
+                             ("Ohne Pause wegen fehlender Zeitregel", "ohne_zeitregel"),
+                             ("Offen seit vor heute", "offen_alt")] %}
+<h2>{{ titel }} <small>({{ f[schluessel] | length }})</small></h2>
+{% if not f[schluessel] %}<p class="leer">Keine.</p>{% else %}
+<table>
+<thead><tr><th>Mitarbeiter</th><th>Kommen</th><th>Gehen</th><th>Brutto</th><th>Pause</th>
+<th>Korrektur</th><th>Netto</th><th>Status</th><th>Terminal</th><th>Manuell</th><th>Nr.</th></tr></thead>
+<tbody>{% for r in f[schluessel] %}{% include "_datensatz_zeile.html" %}{% endfor %}</tbody>
+</table>{% endif %}
+{% endfor %}
+<h2>Offene Klärungen</h2>
+{% if not f.klaerung_tabelle %}
+<p class="leer">Klärungen kommen mit Stufe B (Tabelle zeiterfassung_klaerung ist noch nicht angelegt).</p>
+{% else %}
+<p class="leer">Die Tabelle existiert; die Anzeige folgt mit Stufe B, sobald ihr Aufbau festliegt.</p>
+{% endif %}
+{% endblock %}

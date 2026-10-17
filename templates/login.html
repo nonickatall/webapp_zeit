@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titel %}Anmeldung{% endblock %}
+{% block inhalt %}
+<form method="post" class="kasten schmal" autocomplete="off">
+    <h1>Anmeldung</h1>
+    {% if abgelaufen %}<p class="hinweis">Sie wurden nach {{ leerlauf_min }} Minuten ohne Aktivität abgemeldet.</p>{% endif %}
+    {% if fehler %}<p class="fehler">{{ fehler }}</p>{% endif %}
+    <label>Benutzername<input name="benutzername" required autofocus></label>
+    <label>Passwort<input name="passwort" type="password" required></label>
+    <button type="submit">Anmelden</button>
+</form>
+{% endblock %}

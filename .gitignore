@@ -1,0 +1,9 @@
+.env
+*.conf
+*.log
+*.db
+*.db-*
+tls/
+venv/
+__pycache__/
+*.pyc

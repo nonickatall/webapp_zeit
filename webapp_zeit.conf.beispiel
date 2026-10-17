@@ -1,0 +1,19 @@
+; webapp_zeit.conf -- Vorlage. Kopie als webapp_zeit.conf neben zeit_web.py ablegen
+; (wird nicht deployt, je Host von Hand gepflegt). User/Passwort NUR in der .env:
+;   ZEITWEB_SQL_USER=webapp_zeit
+;   ZEITWEB_SQL_PASSWD=...
+[webapp_zeit]
+; exakt der Host, fuer den der MySQL-User angelegt ist -- nie localhost
+; Entwicklung 192.168.0.3, Kunde 10.10.10.10
+sql_address = 192.168.0.3
+sql_db_zeit = myhome_zeit
+sql_db_myhome = myhome
+; Zugaenge und Sitzungen (SQLite, gilt fuer alle gunicorn-Worker)
+auth_db = /var/lib/myhome/webapp_zeit/auth.db
+leerlauf_minuten = 15
+max_fehlversuche = 5
+sperre_minuten = 15
+; fuer die Einmal-Links aus zeit_benutzer.py (Kunde: https://10.10.10.10:5010)
+basis_url = https://192.168.0.3:5010
+log_datei = webapp_zeit.log
+herkunft = webapp_zeit

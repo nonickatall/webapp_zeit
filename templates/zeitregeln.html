@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titel %}Zeitregeln{% endblock %}
+{% block inhalt %}
+<h1>Zeitregeln</h1>
+<form method="get" class="filter">
+    <label>Mitarbeiter
+        <select name="user">
+            <option value="">alle</option>
+            {% for m in mitarbeiter %}
+            <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}{% if not m.status %} (inaktiv){% endif %}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button type="submit">Anzeigen</button>
+</form>
+{% if not regeln %}
+<p class="leer">Keine Zeitregeln.</p>
+{% else %}
+<table>
+<thead><tr><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th></tr></thead>
+<tbody>{% for z in regeln %}
+<tr><td>{{ z.name or ('? (' ~ z.user_id ~ ')') }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}</td>
+<td>{{ z.sollbeginn or '–' }}</td><td class="zahl">{{ z.pause_minuten }} min</td><td class="zahl">{{ z.pause_ab_minuten }} min</td>
+<td>{{ z.ersteller or ('? (' ~ z.erstellt_von ~ ')') }}</td><td>{{ z.erstellt_am | zeit }}</td><td>{{ z.id }}</td></tr>
+{% endfor %}</tbody>
+</table>
+<p class="fuss">Je Mitarbeiter gilt die Regel mit dem größten „gültig ab“, das nicht nach dem Tag liegt. Regeln werden nie geändert, nur neu angelegt.</p>
+{% endif %}
+{% endblock %}

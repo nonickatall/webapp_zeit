@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titel %}Anwesenheit{% endblock %}
+{% block inhalt %}
+<h1>Anwesenheit jetzt <small>Stand {{ a.jetzt | zeit("%d.%m.%Y %H:%M") }}</small></h1>
+{% if not a.offen %}
+<p class="leer">Niemand angemeldet.</p>
+{% else %}
+<table>
+<thead><tr><th>Mitarbeiter</th><th>Seit</th><th>Laufend</th><th>Heute</th><th>Terminal</th><th></th></tr></thead>
+<tbody>
+{% for r in a.offen %}
+<tr class="{{ 'warnung' if r.vor_heute }}">
+    <td>{{ r.name or ('? (' ~ r.user_id ~ ')') }}</td>
+    <td>{{ r.kommen | zeit }}{% if r.vor_heute %} <span class="marke rot">vor heute</span>{% endif %}</td>
+    <td class="zahl">{{ r.laufend_min | dauer }}</td>
+    <td class="zahl">{{ r.heute_min | dauer }}</td>
+    <td>{{ r.terminal or '–' }}</td>
+    <td><a href="{{ url_for('datensatz', ze_id=r.id) }}">Detail</a></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+<p class="fuss">„Heute“: abgeschlossene Datensätze des Kalendertags plus laufende Zeit seit Tagesbeginn (Europe/Berlin).</p>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titel %}Datensätze{% endblock %}
+{% block inhalt %}
+<h1>Zeitdatensätze</h1>
+<form method="get" class="filter">
+    <label>Mitarbeiter
+        <select name="user">
+            <option value="">alle</option>
+            {% for m in mitarbeiter %}
+            <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}{% if not m.status %} (inaktiv){% endif %}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>von <input type="date" name="von" value="{{ von.isoformat() }}"></label>
+    <label>bis <input type="date" name="bis" value="{{ bis.isoformat() }}"></label>
+    <button type="submit">Anzeigen</button>
+    <a class="knopf" href="{{ url_for('datensaetze_csv', user=uid or '', von=von.isoformat(), bis=bis.isoformat()) }}">CSV</a>
+</form>
+{% if not zeilen %}
+<p class="leer">Keine Datensätze im Zeitraum.</p>
+{% else %}
+<table>
+<thead><tr>{% if not uid %}<th>Mitarbeiter</th>{% endif %}<th>Kommen</th><th>Gehen</th><th>Brutto</th><th>Pause</th>
+<th>Korrektur</th><th>Netto</th><th>Status</th><th>Terminal</th><th>Manuell</th><th>Nr.</th></tr></thead>
+<tbody>
+{% set mit_name = not uid %}
+{% for r in zeilen %}{% include "_datensatz_zeile.html" %}{% endfor %}
+</tbody>
+</table>
+<p class="fuss">{{ zeilen | length }} Datensätze, Zeiten in Ortszeit (Europe/Berlin). Dauer in h:mm.</p>
+{% endif %}
+{% endblock %}
