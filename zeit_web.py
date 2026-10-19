@@ -80,6 +80,7 @@ def anmeldung_pruefen():
         return None
     b = auth.sitzung_pruefen(request.cookies.get(COOKIE))
     if b is None:
+        log.info(f"keine gueltige Sitzung fuer {request.path} von {client_ip()}: {auth.letzter_grund}")
         return redirect(url_for("login"))
     mu = db.myhome_user(b["myhome_user_id"])
     if mu is None:
@@ -223,7 +224,24 @@ def _csv(name, kopf, zeilen):
 # ---------------------------------------------------------------- Seiten
 @app.route("/zeit/anwesenheit")
 def anwesenheit():
-    return render_template("anwesenheit.html", a=db.anwesenheit(), seite="anwesenheit", hilfe="Anwesenheit")
+    uid = _int("user")
+    a = db.anwesenheit()
+    if uid:
+        a["offen"] = [r for r in a["offen"] if r["user_id"] == uid]
+    return render_template("anwesenheit.html", a=a, uid=uid, mitarbeiter=db.mitarbeiter(),
+                           seite="anwesenheit", hilfe="Anwesenheit")
+
+
+# Statusfilter der Datensaetze: Schluessel -> (Anzeige, Pruefung je Zeile)
+STATUS_FILTER = {
+    "": ("Alle", lambda r: True),
+    "offen": ("offen", lambda r: r["status"] == "offen"),
+    "abgeschlossen": ("abgeschlossen", lambda r: r["status"] == "abgeschlossen"),
+    "automatisch_beendet": ("automatisch beendet", lambda r: r["status"] == "automatisch_beendet"),
+    "ohne_zeitregel": ("ohne Zeitregel", lambda r: r["status"] == "abgeschlossen" and r["pause_minuten"] is None),
+    "korrigiert": ("korrigiert", lambda r: bool(r["korrigiert"])),
+    "manuell": ("manuell angelegt", lambda r: bool(r["manuell"])),
+}
 
 
 def _datensaetze_param():
@@ -232,21 +250,30 @@ def _datensaetze_param():
     bis = _datum("bis", heute)
     if bis < von:
         von, bis = bis, von
-    return _int("user"), von, bis
+    status = request.args.get("status", "")
+    if status not in STATUS_FILTER:
+        status = ""
+    return _int("user"), von, bis, status
+
+
+def _datensaetze_gefiltert(uid, von, bis, status):
+    pruef = STATUS_FILTER[status][1]
+    return [r for r in db.datensaetze(uid, *zeitraum_utc(von, bis)) if pruef(r)]
 
 
 @app.route("/zeit/datensaetze")
 def datensaetze():
-    uid, von, bis = _datensaetze_param()
-    zeilen = db.datensaetze(uid, *zeitraum_utc(von, bis))
-    return render_template("datensaetze.html", zeilen=zeilen, uid=uid, von=von, bis=bis,
+    uid, von, bis, status = _datensaetze_param()
+    zeilen = _datensaetze_gefiltert(uid, von, bis, status)
+    return render_template("datensaetze.html", zeilen=zeilen, uid=uid, von=von, bis=bis, status=status,
+                           status_auswahl=[(k, v[0]) for k, v in STATUS_FILTER.items()],
                            mitarbeiter=db.mitarbeiter(), seite="datensaetze", hilfe="Datensaetze")
 
 
 @app.route("/zeit/datensaetze.csv")
 def datensaetze_csv():
-    uid, von, bis = _datensaetze_param()
-    zeilen = db.datensaetze(uid, *zeitraum_utc(von, bis))
+    uid, von, bis, status = _datensaetze_param()
+    zeilen = _datensaetze_gefiltert(uid, von, bis, status)
     kopf = ["ID", "Mitarbeiter", "Kommen", "Gehen", "Brutto", "Pause", "Korrektur", "Netto", "Status",
             "Korrigiert", "Manuell", "Terminal Kommen", "Terminal Gehen"]
     daten = [[r["id"], r["name"], f_zeit(r["kommen"]), f_zeit(r["gehen"]), f_dauer(r["minuten"]),
@@ -264,9 +291,23 @@ def datensatz(ze_id):
     return render_template("datensatz.html", d=d, seite="datensaetze", hilfe="Datensatz")
 
 
+OFFEN_GRUPPEN = [("automatisch_beendet", "Automatisch beendet (Gehen fehlt)"),
+                 ("ohne_zeitregel", "Ohne Pause wegen fehlender Zeitregel"),
+                 ("offen_alt", "Offen seit vor heute")]
+
+
 @app.route("/zeit/offen")
 def offen():
-    return render_template("offen.html", f=db.offene_faelle(), seite="offen", hilfe="Offen")
+    uid = _int("user")
+    art = request.args.get("art", "")
+    if art not in dict(OFFEN_GRUPPEN):
+        art = ""
+    f = db.offene_faelle()
+    if uid:
+        for schluessel, _ in OFFEN_GRUPPEN:
+            f[schluessel] = [r for r in f[schluessel] if r["user_id"] == uid]
+    return render_template("offen.html", f=f, uid=uid, art=art, gruppen=OFFEN_GRUPPEN,
+                           mitarbeiter=db.mitarbeiter(), seite="offen", hilfe="Offen")
 
 
 @app.route("/zeit/zeitregeln")

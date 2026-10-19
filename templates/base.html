@@ -3,31 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titel %}Zeiterfassung{% endblock %} – Verwaltung</title>
+<title>Zeiterfassung — {% block titel %}Verwaltung{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='zeit.css') }}">
 <script src="{{ url_for('static', filename='zeit.js') }}" defer></script>
 </head>
 <body {% if not oeffentlich %}data-leerlauf-sek="{{ config_leerlauf }}"{% endif %}>
-<header class="kopf">
-    <div class="titel">Zeiterfassung – Verwaltung</div>
-    {% if hilfe %}<button type="button" id="hilfe-knopf" data-hilfe="{{ hilfe }}" title="Hilfe zu dieser Seite">? Hilfe</button>{% endif %}
-    {% if not oeffentlich and g.mu %}
-    <nav>
-        <a href="{{ url_for('anwesenheit') }}" class="{{ 'aktiv' if seite == 'anwesenheit' }}">Anwesenheit</a>
-        <a href="{{ url_for('datensaetze') }}" class="{{ 'aktiv' if seite == 'datensaetze' }}">Datensätze</a>
-        <a href="{{ url_for('offen') }}" class="{{ 'aktiv' if seite == 'offen' }}">Offene Fälle</a>
-        <a href="{{ url_for('zeitregeln') }}" class="{{ 'aktiv' if seite == 'zeitregeln' }}">Zeitregeln</a>
-        <a href="{{ url_for('summen') }}" class="{{ 'aktiv' if seite == 'summen' }}">Monatssummen</a>
-    </nav>
-    <form method="post" action="{{ url_for('abmelden') }}" class="abmelden">
+{% if not oeffentlich and g.mu %}
+<nav class="reiter">
+    <span class="marke-app">Zeiterfassung</span>
+    <a href="{{ url_for('anwesenheit') }}" class="{{ 'active' if seite == 'anwesenheit' }}">Anwesenheit</a>
+    <a href="{{ url_for('datensaetze') }}" class="{{ 'active' if seite == 'datensaetze' }}">Datensätze</a>
+    <a href="{{ url_for('offen') }}" class="{{ 'active' if seite == 'offen' }}">Offene Fälle</a>
+    <a href="{{ url_for('zeitregeln') }}" class="{{ 'active' if seite == 'zeitregeln' }}">Zeitregeln</a>
+    <a href="{{ url_for('summen') }}" class="{{ 'active' if seite == 'summen' }}">Monatssummen</a>
+    <span class="rechts">
         <span>{{ g.mu.name }}</span>
-        <button type="submit">Abmelden</button>
-    </form>
-    {% endif %}
-</header>
-<main>
-{% block inhalt %}{% endblock %}
-</main>
+        <form method="post" action="{{ url_for('abmelden') }}"><button type="submit">Abmelden</button></form>
+    </span>
+</nav>
+{% endif %}
+<div class="page">
+    {% block seitenkopf %}
+    <h1 class="page-title">
+        <span>{{ self.titel() }}</span>
+        {% if hilfe %}<button type="button" class="titel-hilfe" id="hilfe-knopf" data-hilfe="{{ hilfe }}" title="Hilfe zu dieser Seite">H</button>{% endif %}
+    </h1>
+    {% endblock %}
+    {% block inhalt %}{% endblock %}
+</div>
+<div id="hilfe-overlay" hidden></div>
 <div id="hilfe-fenster" hidden>
     <div class="hilfe-kopf"><span id="hilfe-titel">Hilfe</span><button type="button" id="hilfe-zu" title="Schließen (Esc)">✕</button></div>
     <div id="hilfe-inhalt"></div>

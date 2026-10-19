@@ -1,32 +1,41 @@
 {% extends "base.html" %}
 {% block titel %}Datensätze{% endblock %}
 {% block inhalt %}
-<h1>Zeitdatensätze</h1>
-<form method="get" class="filter">
-    <label>Mitarbeiter
-        <select name="user">
-            <option value="">alle</option>
-            {% for m in mitarbeiter %}
-            <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}{% if not m.status %} (inaktiv){% endif %}</option>
+<form method="get" action="{{ url_for('datensaetze') }}" class="filter-zeile">
+    {% include "_filter_mitarbeiter.html" %}
+    <div class="filter-item">
+        <label for="f_von">von</label>
+        <input id="f_von" type="date" name="von" value="{{ von.isoformat() }}">
+    </div>
+    <div class="filter-item">
+        <label for="f_bis">bis</label>
+        <input id="f_bis" type="date" name="bis" value="{{ bis.isoformat() }}">
+    </div>
+    <div class="filter-item">
+        <label for="f_status">Status</label>
+        <select id="f_status" name="status">
+            {% for wert, text in status_auswahl %}
+            <option value="{{ wert }}" {{ 'selected' if status == wert }}>{{ text }}</option>
             {% endfor %}
         </select>
-    </label>
-    <label>von <input type="date" name="von" value="{{ von.isoformat() }}"></label>
-    <label>bis <input type="date" name="bis" value="{{ bis.isoformat() }}"></label>
-    <button type="submit">Anzeigen</button>
-    <a class="knopf" href="{{ url_for('datensaetze_csv', user=uid or '', von=von.isoformat(), bis=bis.isoformat()) }}">CSV</a>
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('datensaetze') }}">✗ Filter</a></div>
+    <div class="filter-item"><label>&nbsp;</label>
+        <a class="btn-csv" href="{{ url_for('datensaetze_csv', user=uid or '', von=von.isoformat(), bis=bis.isoformat(), status=status) }}">CSV</a></div>
 </form>
+
+<h2 class="abschnitt-titel">
+    <span>Datensätze ({{ zeilen | length }})</span>
+    <span class="zusatz">{{ von.strftime('%d.%m.%Y') }} – {{ bis.strftime('%d.%m.%Y') }}, Ortszeit, Dauer h:mm</span>
+</h2>
 {% if not zeilen %}
-<p class="leer">Keine Datensätze im Zeitraum.</p>
+<p class="leer">Keine Datensätze für diesen Filter.</p>
 {% else %}
-<table>
-<thead><tr>{% if not uid %}<th>Mitarbeiter</th>{% endif %}<th>Kommen</th><th>Gehen</th><th>Brutto</th><th>Pause</th>
-<th>Korrektur</th><th>Netto</th><th>Status</th><th>Terminal</th><th>Manuell</th><th>Nr.</th></tr></thead>
-<tbody>
 {% set mit_name = not uid %}
-{% for r in zeilen %}{% include "_datensatz_zeile.html" %}{% endfor %}
-</tbody>
-</table>
-<p class="fuss">{{ zeilen | length }} Datensätze, Zeiten in Ortszeit (Europe/Berlin). Dauer in h:mm.</p>
+<div class="table-wrap"><table>
+{% include "_datensatz_kopf.html" %}
+<tbody>{% for r in zeilen %}{% include "_datensatz_zeile.html" %}{% endfor %}</tbody>
+</table></div>
 {% endif %}
 {% endblock %}

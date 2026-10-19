@@ -1,44 +1,111 @@
-:root { --blau: #3d5a80; --rand: #d0d7de; --hell: #f6f8fa; }
-* { box-sizing: border-box; }
-body { margin: 0; font: 14px/1.4 Arial, Helvetica, sans-serif; color: #222; background: #fff; }
-.kopf { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--blau); color: #fff; padding: 8px 16px; }
-.kopf .titel { font-weight: bold; font-size: 16px; }
-.kopf nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
-.kopf nav a { color: #fff; text-decoration: none; padding: 6px 10px; border-radius: 4px; }
-.kopf nav a.aktiv, .kopf nav a:hover { background: rgba(255,255,255,0.2); }
-.abmelden { display: flex; align-items: center; gap: 8px; margin: 0; }
-.abmelden button { background: #fff; color: var(--blau); }
-main { padding: 16px; }
-h1 { font-size: 20px; margin: 0 0 12px; }
-h1 small, h2 small { font-weight: normal; color: #666; font-size: 13px; }
-h2 { font-size: 16px; margin: 20px 0 8px; }
-table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
-table.schmal { width: auto; }
-th, td { border: 1px solid var(--rand); padding: 4px 8px; text-align: left; vertical-align: top; }
-thead th { background: var(--hell); }
+/* Layout wie die Standard-Webapp (webapp/templates/base.html):
+   dunkle Reiterleiste, blauer Seitentitel mit Hilfe-Knopf, graue Filterzeile,
+   blaue Abschnittsueberschrift, Tabelle mit blauem Kopf und Zebra-Zeilen. */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f0f0; color: #222; }
+
+/* ---------------- Reiterleiste ---------------- */
+nav.reiter {
+    background: linear-gradient(to bottom, #f0f0f0 7px, #2c3e50 7px);
+    padding: 7px 8px 0; display: flex; gap: 2px; align-items: flex-end; flex-wrap: wrap;
+}
+nav.reiter .marke-app { color: #fff; font-weight: bold; align-self: center; padding: 4px 12px 4px 4px; }
+nav.reiter a {
+    display: inline-block; padding: 7px 16px 6px; color: #ccc; text-decoration: none;
+    border-radius: 4px 4px 0 0; font-size: 13px; background: #3d5166; transition: background 0.15s;
+}
+nav.reiter a:hover { background: #4a6280; color: #fff; }
+nav.reiter a.active { background: #f0f0f0; color: #2c3e50; font-weight: bold; }
+nav.reiter .rechts { margin-left: auto; align-self: center; display: flex; gap: 8px; align-items: center; color: #ccc; padding-bottom: 4px; }
+nav.reiter .rechts form { display: inline; }
+nav.reiter .rechts button { background: #3d5166; color: #fff; border: none; border-radius: 3px; padding: 3px 10px; cursor: pointer; font-size: 12px; }
+nav.reiter .rechts button:hover { background: #4a6280; }
+
+/* ---------------- Seite ---------------- */
+.page { padding: 16px; }
+.page-title, .abschnitt-titel {
+    background-color: #4a6fa5; color: #fff; padding: 6px 12px; font-size: 15px; font-weight: bold;
+    margin: 0 0 8px 0; display: flex; align-items: center; justify-content: space-between;
+}
+.abschnitt-titel { font-size: 14px; margin-top: 12px; }
+.abschnitt-titel .zusatz { font-weight: normal; font-size: 12px; opacity: 0.9; }
+.page-title .titel-hilfe {
+    background: none; border: none; color: #fff; font-size: 15px; font-weight: bold;
+    cursor: pointer; padding: 0 4px; opacity: 0.7;
+}
+.page-title .titel-hilfe:hover { opacity: 1; }
+
+/* ---------------- Filterzeile ---------------- */
+.filter-zeile {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; padding: 4px 8px; margin-bottom: 10px;
+    background: #f8f9fa; border-bottom: 1px solid #dee2e6;
+}
+.filter-item { display: flex; flex-direction: column; gap: 1px; }
+.filter-item label { font-size: 11px; color: #666; height: 14px; line-height: 14px; }
+.filter-item select, .filter-item input, .filter-item button, .filter-item a {
+    height: 24px; font-size: 12px; padding: 0 6px; border-radius: 3px; border: 1px solid #ced4da;
+    line-height: 22px; font-family: inherit;
+}
+.filter-item button, .filter-item a { border: none; cursor: pointer; text-decoration: none; display: inline-block; font-weight: bold; color: #fff; text-align: center; }
+.btn-filter-set { background: #28a745; } .btn-filter-set:hover { background: #218838; }
+.btn-filter-reset { background: #dc3545; } .btn-filter-reset:hover { background: #c82333; }
+.btn-csv { background: #3d7abf; } .btn-csv:hover { background: #2f5f96; }
+
+/* ---------------- Tabelle ---------------- */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+table thead tr th {
+    background-color: #4a6fa5; color: #fff; padding: 3px 6px; font-size: 12px; font-weight: bold;
+    border: 1px solid #3a5a8a; white-space: nowrap; text-align: left;
+}
+tr { height: 20px; line-height: 20px; }
+tbody tr:nth-child(even) { background: #f0f0f0; }
+tbody tr:nth-child(odd) { background: #fff; }
+tbody tr:hover { background: #ddeeff; }
+tbody td { padding: 0 6px; border: 1px solid #ccc; vertical-align: middle; font-size: 12px; }
 td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
-.mono { font-family: Consolas, monospace; font-size: 12px; }
-tr.warnung td { background: #fff8e1; }
-.marke { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 12px; margin-left: 4px; color: #fff; }
+td.mono { font-family: Consolas, monospace; font-size: 11px; }
+tbody tr.warnung td { background: #fff3cd; }
+tbody tr.warnung:hover td { background: #ffe8a1; }
+table.eigenschaften { width: auto; min-width: 420px; }
+table.eigenschaften th { background: #e8ecf0; color: #2c3e50; border: 1px solid #ccc; padding: 3px 8px; text-align: left; width: 160px; }
+table.eigenschaften td { background: #fff; }
+a { color: #2f5f96; }
+
+/* ---------------- Markierungen, Hinweise ---------------- */
+.marke { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 16px; margin-left: 4px; color: #fff; }
 .marke.rot { background: #c62828; } .marke.gelb { background: #b26a00; } .marke.blau { background: #1565c0; }
-.filter { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
-.filter label { display: flex; flex-direction: column; font-size: 12px; color: #555; }
-input, select { font: inherit; padding: 4px 6px; border: 1px solid var(--rand); border-radius: 4px; }
-button, .knopf { font: inherit; padding: 5px 12px; border: none; border-radius: 4px; background: var(--blau); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
-.kasten { border: 1px solid var(--rand); border-radius: 8px; padding: 20px; background: var(--hell); }
-.kasten.schmal { max-width: 420px; margin: 40px auto; display: flex; flex-direction: column; gap: 12px; }
-.kasten label { display: flex; flex-direction: column; gap: 4px; }
-.fehler { color: #b71c1c; font-weight: bold; margin: 0; }
-.hinweis { color: #444; margin: 0; }
-.leer, .fuss { color: #666; }
-.fuss { font-size: 12px; }
-#hilfe-knopf { background: #fff; color: var(--blau); font-weight: bold; }
-#hilfe-fenster { position: fixed; top: 60px; right: 16px; width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 80px);
-    display: flex; flex-direction: column; background: #fff; border: 1px solid var(--rand); border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 100; }
-#hilfe-fenster[hidden] { display: none; }
-.hilfe-kopf { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
-    background: var(--blau); color: #fff; border-radius: 8px 8px 0 0; font-weight: bold; }
-.hilfe-kopf button { background: transparent; color: #fff; font-size: 16px; padding: 0 6px; }
-#hilfe-inhalt { overflow: auto; padding: 12px 16px; }
-#hilfe-inhalt h2 { font-size: 18px; margin-top: 0; } #hilfe-inhalt h3 { font-size: 15px; } #hilfe-inhalt table { width: auto; }
+.leer { color: #666; padding: 6px 2px; }
+.fuss { color: #666; font-size: 11px; margin-top: 6px; }
+code { font-family: Consolas, monospace; }
+
+/* ---------------- Anmeldung / einzelne Kaesten ---------------- */
+.kasten { max-width: 420px; margin: 40px auto; background: #fff; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.kasten .page-title { margin: 0; border-radius: 4px 4px 0 0; }
+.kasten .inhalt { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.kasten label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #444; }
+.kasten input { height: 28px; padding: 0 8px; border: 1px solid #ced4da; border-radius: 3px; font-size: 13px; }
+.kasten button { height: 30px; border: none; border-radius: 3px; background: #28a745; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
+.kasten button:hover { background: #218838; }
+.fehler { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 6px 10px; border-radius: 3px; }
+.hinweis { color: #155724; background: #d4edda; border: 1px solid #c3e6cb; padding: 6px 10px; border-radius: 3px; }
+
+/* ---------------- Hilfe-Fenster (wie Standard-Webapp) ---------------- */
+#hilfe-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 900; }
+#hilfe-fenster {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); display: flex; flex-direction: column;
+    background: #fff; border-radius: 4px; box-shadow: 0 6px 24px rgba(0,0,0,0.3); z-index: 901;
+}
+#hilfe-overlay[hidden], #hilfe-fenster[hidden] { display: none; }
+.hilfe-kopf { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px;
+    background: #4a6fa5; color: #fff; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 14px; }
+.hilfe-kopf button { background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer; padding: 0 6px; }
+#hilfe-inhalt { overflow: auto; padding: 12px 16px; line-height: 1.5; }
+#hilfe-inhalt h2 { font-size: 17px; margin: 0 0 8px; color: #2c3e50; }
+#hilfe-inhalt h3 { font-size: 14px; margin: 14px 0 6px; color: #2c3e50; }
+#hilfe-inhalt p, #hilfe-inhalt ul, #hilfe-inhalt ol { margin: 0 0 8px; }
+#hilfe-inhalt ul, #hilfe-inhalt ol { padding-left: 20px; }
+#hilfe-inhalt table { width: auto; margin: 4px 0 8px; }
+#hilfe-inhalt td { padding: 2px 6px; line-height: 1.4; }

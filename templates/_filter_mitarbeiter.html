@@ -1,0 +1,10 @@
+{# Filterfeld Mitarbeiter (gemeinsam fuer mehrere Seiten) #}
+<div class="filter-item">
+    <label for="f_user">Mitarbeiter</label>
+    <select id="f_user" name="user">
+        <option value="">Alle</option>
+        {% for m in mitarbeiter %}
+        <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}{% if not m.status %} (inaktiv){% endif %}</option>
+        {% endfor %}
+    </select>
+</div>

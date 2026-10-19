@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% block titel %}Datensatz {{ d.ze.id }}{% endblock %}
+{% block titel %}Datensatz {{ d.ze.id }} – {{ d.ze.name or ('? (' ~ d.ze.user_id ~ ')') }}{% endblock %}
 {% block inhalt %}
 {% set ze = d.ze %}
-<h1>Datensatz {{ ze.id }} – {{ ze.name or ('? (' ~ ze.user_id ~ ')') }}</h1>
-<table class="schmal">
+<table class="eigenschaften">
 <tr><th>Kommen</th><td>{{ ze.kommen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
 <tr><th>Gehen</th><td>{{ ze.gehen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
 <tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}</td></tr>
@@ -15,32 +14,32 @@
 <tr><th>Manuell angelegt</th><td>{{ 'ja' if ze.manuell else 'nein' }}</td></tr>
 </table>
 
-<h2>Rohbuchungen</h2>
+<h2 class="abschnitt-titel"><span>Rohbuchungen ({{ d.buchungen | length }})</span><span class="zusatz">werden nie geändert</span></h2>
 {% if not d.buchungen %}<p class="leer">Keine (manuell angelegt).</p>{% else %}
-<table>
+<div class="table-wrap"><table>
 <thead><tr><th>Nr.</th><th>Art</th><th>Zeitpunkt</th><th>Terminal</th><th>anfrage_id</th><th>logdaten</th></tr></thead>
 <tbody>{% for b in d.buchungen %}
 <tr><td>{{ b.id }}</td><td>{{ b.art }}</td><td>{{ b.zeitpunkt | zeit("%d.%m.%Y %H:%M:%S") }}</td>
 <td>{{ b.terminal }}</td><td class="mono">{{ b.anfrage_id }}</td><td>{{ b.ereignis_id or '–' }}</td></tr>
-{% endfor %}</tbody></table>{% endif %}
+{% endfor %}</tbody></table></div>{% endif %}
 
-<h2>Anfragen</h2>
+<h2 class="abschnitt-titel"><span>Anfragen ({{ d.anfragen | length }})</span></h2>
 {% if not d.anfragen %}<p class="leer">Keine.</p>{% else %}
-<table>
+<div class="table-wrap"><table>
 <thead><tr><th>Eingegangen</th><th>Art</th><th>Ergebnis</th><th>Grund</th><th>Terminal</th><th>Buchung</th><th>anfrage_id</th></tr></thead>
 <tbody>{% for a in d.anfragen %}
 <tr><td>{{ a.eingegangen | zeit("%d.%m.%Y %H:%M:%S") }}</td><td>{{ a.art }}</td><td>{{ a.ergebnis }}</td>
 <td>{{ a.grund or '–' }}</td><td>{{ a.terminal }}</td><td>{{ a.buchung_id or '–' }}</td><td class="mono">{{ a.anfrage_id }}</td></tr>
-{% endfor %}</tbody></table>{% endif %}
+{% endfor %}</tbody></table></div>{% endif %}
 
-<h2>Änderungen (Spur)</h2>
+<h2 class="abschnitt-titel"><span>Änderungen ({{ d.aenderungen | length }})</span><span class="zusatz">Spur aller nachträglichen Änderungen</span></h2>
 {% if not d.aenderungen %}<p class="leer">Keine Änderungen.</p>{% else %}
-<table>
+<div class="table-wrap"><table>
 <thead><tr><th>Wann</th><th>Wer</th><th>Feld</th><th>Alt</th><th>Neu</th><th>Grund</th><th>logdaten</th></tr></thead>
 <tbody>{% for a in d.aenderungen %}
 <tr><td>{{ a.geaendert_am | zeit("%d.%m.%Y %H:%M:%S") }}</td><td>{{ a.bearbeiter or ('? (' ~ a.geaendert_von ~ ')') }}</td>
 <td>{{ a.feld }}</td><td>{{ a.alt if a.alt is not none else '–' }}</td><td>{{ a.neu if a.neu is not none else '–' }}</td>
 <td>{{ a.grund }}</td><td>{{ a.ereignis_id or '–' }}</td></tr>
-{% endfor %}</tbody></table>{% endif %}
+{% endfor %}</tbody></table></div>{% endif %}
 <p class="fuss">Zeitwerte in alt/neu werden so angezeigt, wie sie gespeichert sind (UTC).</p>
 {% endblock %}

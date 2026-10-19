@@ -7,7 +7,9 @@ Type=simple
 User=myhome
 WorkingDirectory=/etc/webapp_zeit
 EnvironmentFile=/etc/webapp_zeit/.env
-ExecStart=/etc/webapp_zeit/venv/bin/gunicorn -w 2 -b 0.0.0.0:5010 \
+# gthread: Browser oeffnen bei TLS vorab leere Verbindungen; mit sync-Workern
+# blockieren die einen Worker bis zum Timeout (30 s) und Seiten haengen.
+ExecStart=/etc/webapp_zeit/venv/bin/gunicorn -w 2 --worker-class gthread --threads 4 -b 0.0.0.0:5010 \
     --certfile /etc/webapp_zeit/tls/zeit.crt --keyfile /etc/webapp_zeit/tls/zeit.key \
     zeit_web:app
 Restart=on-failure

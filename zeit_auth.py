@@ -16,6 +16,7 @@ import hmac
 import os
 import secrets
 import sqlite3
+import threading
 import time
 
 SCRYPT_N, SCRYPT_R, SCRYPT_P, SCRYPT_LEN = 2 ** 14, 8, 1, 64
@@ -63,7 +64,17 @@ class AuthDB:
         self.leerlauf_sek = leerlauf_sek
         self.max_fehlversuche = max_fehlversuche
         self.sperre_sek = sperre_sek
+        self._lokal = threading.local()   # Grund je Thread (gunicorn gthread)
         self._init()
+
+    @property
+    def letzter_grund(self):
+        """Warum die letzte sitzung_pruefen() dieses Threads None lieferte (fuers Log)."""
+        return getattr(self._lokal, "grund", "")
+
+    @letzter_grund.setter
+    def letzter_grund(self, wert):
+        self._lokal.grund = wert
 
     def _conn(self):
         c = sqlite3.connect(self.pfad, timeout=5)
@@ -189,6 +200,7 @@ class AuthDB:
     def sitzung_pruefen(self, sid):
         """Gueltige Sitzung -> Benutzer-Dict (Leerlauf wird zurueckgesetzt), sonst None."""
         if not sid:
+            self.letzter_grund = "kein Cookie"
             return None
         jetzt = int(time.time())
         h = _token_hash(sid)
@@ -196,8 +208,11 @@ class AuthDB:
             r = c.execute("SELECT b.*, s.letzte_aktivitaet FROM sitzung s JOIN benutzer b ON b.id = s.benutzer_id "
                           "WHERE s.sid_hash=?", (h,)).fetchone()
             if r is None:
+                self.letzter_grund = "Sitzung unbekannt"
                 return None
             if r["letzte_aktivitaet"] < jetzt - self.leerlauf_sek or not r["aktiv"]:
+                self.letzter_grund = (f"Leerlauf {jetzt - r['letzte_aktivitaet']} s > {self.leerlauf_sek} s"
+                                      if r["aktiv"] else "Zugang inaktiv")
                 c.execute("DELETE FROM sitzung WHERE sid_hash=?", (h,))
                 return None
             c.execute("UPDATE sitzung SET letzte_aktivitaet=? WHERE sid_hash=?", (jetzt, h))

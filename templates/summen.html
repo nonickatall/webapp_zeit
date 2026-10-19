@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% block titel %}Monatssummen{% endblock %}
 {% block inhalt %}
-<h1>Summen je Mitarbeiter</h1>
-<form method="get" class="filter">
-    <label>Monat <input type="month" name="monat" value="{{ monat }}"></label>
-    <button type="submit">Anzeigen</button>
-    <a class="knopf" href="{{ url_for('summen_csv', monat=monat) }}">CSV</a>
+<form method="get" action="{{ url_for('summen') }}" class="filter-zeile">
+    <div class="filter-item">
+        <label for="f_monat">Monat</label>
+        <input id="f_monat" type="month" name="monat" value="{{ monat }}">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('summen') }}">✗ Filter</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('summen_csv', monat=monat) }}">CSV</a></div>
 </form>
-<p class="fuss">Zeitraum {{ von.strftime('%d.%m.%Y') }} – {{ bis.strftime('%d.%m.%Y') }} (Kommen im Monat, Ortszeit).</p>
+
+<h2 class="abschnitt-titel">
+    <span>Summen je Mitarbeiter ({{ zeilen | length }})</span>
+    <span class="zusatz">{{ von.strftime('%d.%m.%Y') }} – {{ bis.strftime('%d.%m.%Y') }}, Kommen im Monat (Ortszeit)</span>
+</h2>
 {% if not zeilen %}
 <p class="leer">Keine Datensätze in diesem Monat.</p>
 {% else %}
-<table>
+<div class="table-wrap"><table>
 <thead><tr><th>Mitarbeiter</th><th>Tage</th><th>Datensätze</th><th>Brutto</th><th>Pause</th><th>Netto</th>
 <th>Offen</th><th>Ohne Zeitregel</th><th>Autom. beendet</th></tr></thead>
 <tbody>{% for s in zeilen %}
@@ -22,7 +29,7 @@
 <td class="zahl">{{ s.netto | dauer }}{% if not s.netto_vollstaendig %} <span class="marke rot">unvollständig</span>{% endif %}</td>
 <td class="zahl">{{ s.offen }}</td><td class="zahl">{{ s.ohne_regel }}</td><td class="zahl">{{ s.auto }}</td></tr>
 {% endfor %}</tbody>
-</table>
+</table></div>
 <p class="fuss">Netto zählt nur abgeschlossene Datensätze mit Pause. „Unvollständig“, solange offene, automatisch beendete oder Datensätze ohne Zeitregel im Monat liegen.</p>
 {% endif %}
 {% endblock %}

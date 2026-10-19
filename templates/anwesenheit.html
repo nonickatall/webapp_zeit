@@ -1,12 +1,21 @@
 {% extends "base.html" %}
 {% block titel %}Anwesenheit{% endblock %}
 {% block inhalt %}
-<h1>Anwesenheit jetzt <small>Stand {{ a.jetzt | zeit("%d.%m.%Y %H:%M") }}</small></h1>
+<form method="get" action="{{ url_for('anwesenheit') }}" class="filter-zeile">
+    {% include "_filter_mitarbeiter.html" %}
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('anwesenheit') }}">✗ Filter</a></div>
+</form>
+
+<h2 class="abschnitt-titel">
+    <span>Anwesend ({{ a.offen | length }})</span>
+    <span class="zusatz">Stand {{ a.jetzt | zeit("%d.%m.%Y %H:%M") }}</span>
+</h2>
 {% if not a.offen %}
 <p class="leer">Niemand angemeldet.</p>
 {% else %}
-<table>
-<thead><tr><th>Mitarbeiter</th><th>Seit</th><th>Laufend</th><th>Heute</th><th>Terminal</th><th></th></tr></thead>
+<div class="table-wrap"><table>
+<thead><tr><th>Mitarbeiter</th><th>Seit</th><th>Laufend</th><th>Heute</th><th>Terminal</th><th>Nr.</th></tr></thead>
 <tbody>
 {% for r in a.offen %}
 <tr class="{{ 'warnung' if r.vor_heute }}">
@@ -15,11 +24,11 @@
     <td class="zahl">{{ r.laufend_min | dauer }}</td>
     <td class="zahl">{{ r.heute_min | dauer }}</td>
     <td>{{ r.terminal or '–' }}</td>
-    <td><a href="{{ url_for('datensatz', ze_id=r.id) }}">Detail</a></td>
+    <td><a href="{{ url_for('datensatz', ze_id=r.id) }}">{{ r.id }}</a></td>
 </tr>
 {% endfor %}
 </tbody>
-</table>
+</table></div>
 {% endif %}
 <p class="fuss">„Heute“: abgeschlossene Datensätze des Kalendertags plus laufende Zeit seit Tagesbeginn (Europe/Berlin).</p>
 {% endblock %}

@@ -1,23 +1,37 @@
 {% extends "base.html" %}
 {% block titel %}Offene Fälle{% endblock %}
 {% block inhalt %}
-<h1>Offene Fälle</h1>
+<form method="get" action="{{ url_for('offen') }}" class="filter-zeile">
+    {% include "_filter_mitarbeiter.html" %}
+    <div class="filter-item">
+        <label for="f_art">Art</label>
+        <select id="f_art" name="art">
+            <option value="">Alle</option>
+            {% for schluessel, titel in gruppen %}
+            <option value="{{ schluessel }}" {{ 'selected' if art == schluessel }}>{{ titel }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('offen') }}">✗ Filter</a></div>
+</form>
+
 {% set mit_name = true %}
-{% for titel, schluessel in [("Automatisch beendet (Gehen fehlt)", "automatisch_beendet"),
-                             ("Ohne Pause wegen fehlender Zeitregel", "ohne_zeitregel"),
-                             ("Offen seit vor heute", "offen_alt")] %}
-<h2>{{ titel }} <small>({{ f[schluessel] | length }})</small></h2>
+{% for schluessel, titel in gruppen if not art or art == schluessel %}
+<h2 class="abschnitt-titel"><span>{{ titel }} ({{ f[schluessel] | length }})</span></h2>
 {% if not f[schluessel] %}<p class="leer">Keine.</p>{% else %}
-<table>
-<thead><tr><th>Mitarbeiter</th><th>Kommen</th><th>Gehen</th><th>Brutto</th><th>Pause</th>
-<th>Korrektur</th><th>Netto</th><th>Status</th><th>Terminal</th><th>Manuell</th><th>Nr.</th></tr></thead>
+<div class="table-wrap"><table>
+{% include "_datensatz_kopf.html" %}
 <tbody>{% for r in f[schluessel] %}{% include "_datensatz_zeile.html" %}{% endfor %}</tbody>
-</table>{% endif %}
+</table></div>{% endif %}
 {% endfor %}
-<h2>Offene Klärungen</h2>
+
+{% if not art %}
+<h2 class="abschnitt-titel"><span>Offene Klärungen</span></h2>
 {% if not f.klaerung_tabelle %}
 <p class="leer">Klärungen kommen mit Stufe B (Tabelle zeiterfassung_klaerung ist noch nicht angelegt).</p>
 {% else %}
 <p class="leer">Die Tabelle existiert; die Anzeige folgt mit Stufe B, sobald ihr Aufbau festliegt.</p>
+{% endif %}
 {% endif %}
 {% endblock %}

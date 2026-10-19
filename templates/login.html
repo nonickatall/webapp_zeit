@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block titel %}Anmeldung{% endblock %}
+{% block seitenkopf %}{% endblock %}
 {% block inhalt %}
-<form method="post" class="kasten schmal" autocomplete="off">
-    <h1>Anmeldung</h1>
-    {% if abgelaufen %}<p class="hinweis">Sie wurden nach {{ leerlauf_min }} Minuten ohne Aktivität abgemeldet.</p>{% endif %}
-    {% if fehler %}<p class="fehler">{{ fehler }}</p>{% endif %}
-    <label>Benutzername<input name="benutzername" required autofocus></label>
-    <label>Passwort<input name="passwort" type="password" required></label>
-    <button type="submit">Anmelden</button>
+<form method="post" class="kasten" autocomplete="off">
+    {% set kasten_titel = "Zeiterfassung – Anmeldung" %}{% include "_kasten_kopf.html" %}
+    <div class="inhalt">
+        {% if abgelaufen %}<p class="hinweis">Sie wurden nach {{ leerlauf_min }} Minuten ohne Aktivität abgemeldet.</p>{% endif %}
+        {% if fehler %}<p class="fehler">{{ fehler }}</p>{% endif %}
+        <label>Benutzername<input name="benutzername" required autofocus></label>
+        <label>Passwort<input name="passwort" type="password" required></label>
+        <button type="submit">Anmelden</button>
+    </div>
 </form>
 {% endblock %}

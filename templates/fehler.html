@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% block titel %}Fehler{% endblock %}
+{% block seitenkopf %}{% endblock %}
 {% block inhalt %}
-<div class="kasten schmal"><h1>{{ text }}</h1><p><a href="{{ url_for('anwesenheit') }}">Zur Übersicht</a></p></div>
+<div class="kasten">
+    {% set kasten_titel = text %}{% include "_kasten_kopf.html" %}
+    <div class="inhalt"><p><a href="{{ url_for('anwesenheit') }}">Zur Übersicht</a></p></div>
+</div>
 {% endblock %}

@@ -1,0 +1,5 @@
+{# Titelzeile eines Einzelkastens (Anmeldung, Passwort, Fehler) -- gleicher Stil wie der Seitentitel #}
+<h1 class="page-title">
+    <span>{{ kasten_titel }}</span>
+    {% if hilfe %}<button type="button" class="titel-hilfe" id="hilfe-knopf" data-hilfe="{{ hilfe }}" title="Hilfe">H</button>{% endif %}
+</h1>

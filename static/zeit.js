@@ -17,14 +17,16 @@
     if (!knopf || !fenster) return;
     var titel = document.getElementById('hilfe-titel');
     var inhalt = document.getElementById('hilfe-inhalt');
+    var overlay = document.getElementById('hilfe-overlay');
 
-    function zu() { fenster.hidden = true; }
+    function zu() { fenster.hidden = true; if (overlay) overlay.hidden = true; }
 
     knopf.addEventListener('click', function () {
         var schluessel = knopf.getAttribute('data-hilfe');
         titel.textContent = 'Hilfe';
         inhalt.textContent = 'wird geladen …';
         fenster.hidden = false;
+        if (overlay) overlay.hidden = false;
         fetch('/zeit/hilfe/' + encodeURIComponent(schluessel), { cache: 'no-store', credentials: 'same-origin' })
             .then(function (r) {
                 if (r.redirected || r.status === 401) { window.location.href = '/zeit/login?abgelaufen=1'; return null; }
@@ -38,5 +40,6 @@
             .catch(function () { inhalt.textContent = 'Die Hilfe konnte nicht geladen werden.'; });
     });
     document.getElementById('hilfe-zu').addEventListener('click', zu);
+    if (overlay) overlay.addEventListener('click', zu);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') zu(); });
 })();

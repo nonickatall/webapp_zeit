@@ -1,6 +1,12 @@
 {% extends "base.html" %}
+{% block titel %}Kein Zugriff{% endblock %}
+{% block seitenkopf %}{% endblock %}
 {% block inhalt %}
-<div class="kasten schmal"><h1>Kein Zugriff</h1>
-<p>Für {{ mu.name }} ist die Zeiterfassung nicht freigegeben (Recht <code>zef_lesen</code>).</p>
-<form method="post" action="{{ url_for('abmelden') }}"><button type="submit">Abmelden</button></form></div>
+<div class="kasten">
+    {% set kasten_titel = "Kein Zugriff" %}{% include "_kasten_kopf.html" %}
+    <div class="inhalt">
+        <p>Für {{ mu.name }} ist die Zeiterfassung nicht freigegeben (Recht <code>zef_lesen</code>).</p>
+        <form method="post" action="{{ url_for('abmelden') }}"><button type="submit">Abmelden</button></form>
+    </div>
+</div>
 {% endblock %}
