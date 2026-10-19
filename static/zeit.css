@@ -109,3 +109,13 @@ code { font-family: Consolas, monospace; }
 #hilfe-inhalt ul, #hilfe-inhalt ol { padding-left: 20px; }
 #hilfe-inhalt table { width: auto; margin: 4px 0 8px; }
 #hilfe-inhalt td { padding: 2px 6px; line-height: 1.4; }
+
+/* ---------------- Formulare fuer Auftraege (Stufe B) ---------------- */
+.filter-zeile.formular { background: #fff; border: 1px solid #dee2e6; }
+.filter-item input.schmal { width: 80px; }
+.filter-item.breit { flex: 1; min-width: 240px; }
+.filter-item.breit input { width: 100%; }
+.ergebnis { padding: 6px 10px; border-radius: 3px; margin: -4px 0 10px; font-weight: bold; }
+.ergebnis.ok { color: #155724; background: #d4edda; border: 1px solid #c3e6cb; }
+.ergebnis.fehler { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; }
+.ergebnis.warten { color: #37474f; background: #eceff1; border: 1px solid #cfd8dc; }

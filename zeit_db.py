@@ -32,27 +32,50 @@ def _env_laden(pfad):
 
 
 def lade_konfig():
+    """webapp_zeit.conf (Abschnitte [webapp_zeit], [datenbank], [anmeldung], [mqtt]) + .env.
+
+    Konvention wie bei den myhome-Diensten: Adressen und Benutzernamen in der conf,
+    Passwoerter NUR in der .env (ZEITWEB_SQL_PASSWD, ZEITWEB_MQTT_PASSWD).
+    Uebergang: Fehlt ein Wert in seinem Abschnitt, gilt der gleichnamige Schluessel in
+    [webapp_zeit] (alte, flache conf); Benutzernamen notfalls noch aus der .env
+    (ZEITWEB_SQL_USER / ZEITWEB_MQTT_USER).
+    """
     _env_laden(os.path.join(HIER, ".env"))
     cp = configparser.ConfigParser()
     datei = os.path.join(HIER, "webapp_zeit.conf")
     if not cp.read(datei, encoding="utf-8"):
         raise RuntimeError(f"Konfiguration fehlt: {datei}")
-    s = cp["webapp_zeit"]
-    user, passwd = os.environ.get("ZEITWEB_SQL_USER", ""), os.environ.get("ZEITWEB_SQL_PASSWD", "")
-    if not user or not passwd:
-        raise RuntimeError("ZEITWEB_SQL_USER / ZEITWEB_SQL_PASSWD fehlen in der .env")
+
+    def wert(abschnitt, schluessel, vorgabe=None):
+        for a in (abschnitt, "webapp_zeit"):
+            if cp.has_option(a, schluessel) and cp.get(a, schluessel).strip():
+                return cp.get(a, schluessel).strip()
+        if vorgabe is None:
+            raise RuntimeError(f"{datei}: [{abschnitt}] {schluessel} fehlt")
+        return vorgabe
+
+    sql_user = wert("datenbank", "sql_user", os.environ.get("ZEITWEB_SQL_USER", ""))
+    sql_passwd = os.environ.get("ZEITWEB_SQL_PASSWD", "")
+    if not sql_user or not sql_passwd:
+        raise RuntimeError("[datenbank] sql_user in der conf bzw. ZEITWEB_SQL_PASSWD in der .env fehlt")
     return {
-        "sql_address": s["sql_address"],          # exakt der Host des MySQL-Users, nie localhost
-        "sql_db_zeit": s.get("sql_db_zeit", "myhome_zeit"),
-        "sql_db_myhome": s.get("sql_db_myhome", "myhome"),
-        "sql_user": user,
-        "sql_passwd": passwd,
-        "auth_db": s["auth_db"],
-        "leerlauf_sek": int(s.get("leerlauf_minuten", "15")) * 60,
-        "max_fehlversuche": int(s.get("max_fehlversuche", "5")),
-        "sperre_sek": int(s.get("sperre_minuten", "15")) * 60,
-        "log_datei": s.get("log_datei", "webapp_zeit.log"),
-        "herkunft": s.get("herkunft", "webapp_zeit"),
+        "sql_address": wert("datenbank", "sql_address"),     # exakt der Host des MySQL-Users, nie localhost
+        "sql_db_zeit": wert("datenbank", "sql_db_zeit", "myhome_zeit"),
+        "sql_db_myhome": wert("datenbank", "sql_db_myhome", "myhome"),
+        "sql_user": sql_user,
+        "sql_passwd": sql_passwd,
+        "auth_db": wert("anmeldung", "auth_db"),
+        "leerlauf_sek": int(wert("anmeldung", "leerlauf_minuten", "15")) * 60,
+        "max_fehlversuche": int(wert("anmeldung", "max_fehlversuche", "5")),
+        "sperre_sek": int(wert("anmeldung", "sperre_minuten", "15")) * 60,
+        "log_datei": wert("webapp_zeit", "log_datei", "webapp_zeit.log"),
+        "herkunft": wert("webapp_zeit", "herkunft", "webapp_zeit"),
+        # Auftraege an die Engine (Stufe B): ohne Host/User sind nur Lesefunktionen aktiv
+        "mqtt_host": wert("mqtt", "mqtt_host", ""),
+        "mqtt_port": int(wert("mqtt", "mqtt_port", "1883")),
+        "eingang_topic": wert("mqtt", "eingang_topic", "/myhome/interner_mqtt_eingang"),
+        "mqtt_user": wert("mqtt", "mqtt_user", os.environ.get("ZEITWEB_MQTT_USER", "")),
+        "mqtt_passwd": os.environ.get("ZEITWEB_MQTT_PASSWD", ""),
     }
 
 
@@ -134,6 +157,18 @@ class ZeitDB:
                      (aktion or "")[:200], (parameter or "")[:100]))
         finally:
             conn.close()
+
+    def aktive_user(self):
+        """Auswahl fuer neue Zeitregeln: aktive myhome.user mit echter Rufnummer
+        (nie id 0, keine technischen User wie +Jobserver)."""
+        return self.abfrage(
+            f"SELECT id, `user` AS name, status FROM {self.m}.`user` "
+            f"WHERE id <> 0 AND status = 1 AND nummer REGEXP '^[+][0-9]+$' ORDER BY `user`")
+
+    def auftrag(self, anfrage_id, bearbeiter_id):
+        """Ergebnis eines eigenen Verwaltungsauftrags (sonst None)."""
+        return self.eins(f"SELECT * FROM {self.z}.zeiterfassung_auftrag "
+                         f"WHERE anfrage_id = %s AND bearbeiter_id = %s", (anfrage_id, bearbeiter_id))
 
     def mitarbeiter(self):
         """Auswahlliste: alle User mit Zeitdatensaetzen oder Zeitregeln (auch inaktive)."""

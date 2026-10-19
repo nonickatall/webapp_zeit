@@ -12,6 +12,8 @@ import csv
 import datetime
 import io
 import logging
+import re
+import uuid
 
 from flask import Flask, Response, abort, g, redirect, render_template, request, url_for
 from jinja2 import Undefined
@@ -19,6 +21,7 @@ from jinja2 import Undefined
 from zeit_auth import MIN_PASSWORT, AuthDB
 from zeit_db import ZeitDB, lade_konfig, ortszeit, zeitraum_utc
 from zeit_hilfe import markdown_html
+import zeit_mqtt
 
 cfg = lade_konfig()
 logging.basicConfig(filename=cfg["log_datei"], level=logging.INFO,
@@ -31,6 +34,9 @@ auth = AuthDB(cfg["auth_db"], cfg["leerlauf_sek"], cfg["max_fehlversuche"], cfg[
 app = Flask(__name__)
 COOKIE = "zeit_session"
 RECHT_LESEN = "zef_lesen"
+RECHT_ZEITREGEL = "zef_zeitregel"
+ANFRAGE_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 OEFFENTLICH = {"login", "passwort", "static"}
 # Die Hilfe zur Anmeldung ist auch ohne Sitzung lesbar, alle anderen nur angemeldet.
 HILFE_OEFFENTLICH = {"Anmeldung"}
@@ -313,8 +319,82 @@ def offen():
 @app.route("/zeit/zeitregeln")
 def zeitregeln():
     uid = _int("user")
+    darf = db.hat_recht(g.mu["id"], RECHT_ZEITREGEL)
     return render_template("zeitregeln.html", regeln=db.zeitregeln(uid), uid=uid,
-                           mitarbeiter=db.mitarbeiter(), seite="zeitregeln", hilfe="Zeitregeln")
+                           mitarbeiter=db.mitarbeiter(), darf_anlegen=darf,
+                           alle_user=db.aktive_user() if darf else [], heute=_heute(),
+                           seite="zeitregeln", hilfe="Zeitregeln")
+
+
+# ---------------------------------------------------------------- Auftraege (Stufe B)
+def _auftrag_anfrage():
+    """Nur per fetch aus der eigenen Seite: JSON + eigener Kopf (zusaetzlich zu SameSite=Strict)."""
+    if request.headers.get("X-Zeit-Auftrag") != "1" or not request.is_json:
+        abort(400)
+    return request.get_json(silent=True) or {}
+
+
+@app.route("/zeit/zeitregeln/neu", methods=["POST"])
+def zeitregel_neu():
+    """Auftrag "Zeitregel anlegen" an die Engine. Die Webapp schreibt nicht selbst;
+    verbindlich prueft der Eingang das Recht, inhaltlich prueft der zeiterfassung_server."""
+    d = _auftrag_anfrage()
+    if not db.hat_recht(g.mu["id"], RECHT_ZEITREGEL):
+        _log_db(g.mu["name"], "zeitregel", f"abgewiesen:kein_recht {RECHT_ZEITREGEL}")
+        return {"ok": False, "fehler": "Kein Recht zum Anlegen von Zeitregeln."}, 403
+    # dieselbe anfrage_id beim "Erneut versuchen" -> der Dienst erkennt die Wiederholung
+    anfrage_id = str(d.get("anfrage_id") or "").lower() or str(uuid.uuid4())
+    if not ANFRAGE_ID_RE.match(anfrage_id):
+        return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
+    try:
+        param = {
+            "user_id": int(d.get("user_id")),
+            "gueltig_ab": str(d.get("gueltig_ab") or ""),
+            "pause_minuten": int(d.get("pause_minuten")),
+            "pause_ab_minuten": int(d.get("pause_ab_minuten")),
+            "sollbeginn": str(d.get("sollbeginn") or ""),
+            "begruendung": str(d.get("begruendung") or "").strip()[:255],
+        }
+    except (TypeError, ValueError):
+        return {"ok": False, "fehler": "Bitte alle Pflichtfelder als Zahl/Datum ausfüllen."}, 400
+    if len(param["begruendung"]) < 3:
+        return {"ok": False, "fehler": "Bitte eine Begründung angeben (mindestens 3 Zeichen)."}, 400
+    nummer = (g.mu.get("nummer") or "").strip()
+    if not nummer:
+        return {"ok": False, "fehler": "Für Ihren Zugang ist keine Rufnummer hinterlegt."}, 403
+    try:
+        zeit_mqtt.senden(cfg, RECHT_ZEITREGEL, nummer, anfrage_id, zeit_mqtt.param_kodieren(param))
+    except Exception as e:
+        log.error(f"zeitregel_neu: Versand fehlgeschlagen: {e}")
+        return {"ok": False, "fehler": "Der Auftrag konnte nicht gesendet werden."}, 503
+    _log_db(g.mu["name"], "zeitregel", f"auftrag gesendet fuer user {param['user_id']}")
+    log.info(f"zeitregel_neu: {g.mu['name']} -> user {param['user_id']} ab {param['gueltig_ab']}, "
+             f"anfrage_id={anfrage_id}")
+    return {"ok": True, "anfrage_id": anfrage_id}
+
+
+GRUND_TEXT = {
+    "rueckwirkend": "„gültig ab“ darf nicht in der Vergangenheit liegen.",
+    "bereits_vorhanden": "Für diesen Mitarbeiter gibt es ab diesem Tag schon eine Zeitregel.",
+    "mitarbeiter_unbekannt": "Der Mitarbeiter ist unbekannt oder gesperrt.",
+    "begruendung_fehlt": "Die Begründung fehlt.",
+    "bearbeiter_unbekannt": "Ihr Zugang konnte keinem aktiven Benutzer zugeordnet werden.",
+}
+
+
+@app.route("/zeit/auftrag/<anfrage_id>")
+def auftrag(anfrage_id):
+    """Ergebnis eines eigenen Auftrags -- nur aus zeiterfassung_auftrag, nie optimistisch.
+    Ungueltig, nicht vorhanden oder fremd: dieselbe 404."""
+    anfrage_id = (anfrage_id or "").lower()
+    r = db.auftrag(anfrage_id, g.mu["id"]) if ANFRAGE_ID_RE.match(anfrage_id) else None
+    if r is None:
+        return {"ok": False}, 404
+    grund = r["grund"] or ""
+    text = GRUND_TEXT.get(grund) or (f"Ungültige Angabe ({grund.split(':', 1)[1]})."
+                                     if grund.startswith("param_ungueltig:") else grund)
+    return {"ok": True, "ergebnis": r["ergebnis"], "grund": grund, "text": text,
+            "zeitregel_id": r["zeitregel_id"], "uhrzeit": f_zeit(r["eingegangen"], "%H:%M")}
 
 
 def _monat():

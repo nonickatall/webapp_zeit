@@ -7,6 +7,42 @@
     <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('zeitregeln') }}">✗ Filter</a></div>
 </form>
 
+{% if darf_anlegen %}
+<h2 class="abschnitt-titel"><span>Neue Zeitregel</span><span class="zusatz">wird über die Engine angelegt, nie geändert</span></h2>
+<form id="zeitregel-neu" class="filter-zeile formular" autocomplete="off">
+    <div class="filter-item">
+        <label for="n_user">Mitarbeiter *</label>
+        <select id="n_user" name="user_id" required>
+            <option value="">– bitte wählen –</option>
+            {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="filter-item">
+        <label for="n_ab">gültig ab *</label>
+        <input id="n_ab" type="date" name="gueltig_ab" min="{{ heute.isoformat() }}" value="{{ heute.isoformat() }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="n_pause">Pause (min) *</label>
+        <input id="n_pause" type="number" name="pause_minuten" min="0" max="240" value="30" required class="schmal">
+    </div>
+    <div class="filter-item">
+        <label for="n_ab_min">Pause ab (min) *</label>
+        <input id="n_ab_min" type="number" name="pause_ab_minuten" min="0" max="1440" value="360" required class="schmal">
+    </div>
+    <div class="filter-item">
+        <label for="n_soll">Sollbeginn</label>
+        <input id="n_soll" type="time" name="sollbeginn">
+    </div>
+    <div class="filter-item breit">
+        <label for="n_grund">Begründung *</label>
+        <input id="n_grund" type="text" name="begruendung" maxlength="255" required placeholder="z.B. Arbeitsvertrag vom …">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Anlegen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv" id="zeitregel-erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p id="zeitregel-ergebnis" class="ergebnis" hidden></p>
+{% endif %}
+
 <h2 class="abschnitt-titel"><span>Zeitregeln ({{ regeln | length }})</span></h2>
 {% if not regeln %}
 <p class="leer">Keine Zeitregeln.</p>
