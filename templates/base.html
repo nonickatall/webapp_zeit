@@ -10,6 +10,7 @@
 <body {% if not oeffentlich %}data-leerlauf-sek="{{ config_leerlauf }}"{% endif %}>
 <header class="kopf">
     <div class="titel">Zeiterfassung – Verwaltung</div>
+    {% if hilfe %}<button type="button" id="hilfe-knopf" data-hilfe="{{ hilfe }}" title="Hilfe zu dieser Seite">? Hilfe</button>{% endif %}
     {% if not oeffentlich and g.mu %}
     <nav>
         <a href="{{ url_for('anwesenheit') }}" class="{{ 'aktiv' if seite == 'anwesenheit' }}">Anwesenheit</a>
@@ -27,5 +28,9 @@
 <main>
 {% block inhalt %}{% endblock %}
 </main>
+<div id="hilfe-fenster" hidden>
+    <div class="hilfe-kopf"><span id="hilfe-titel">Hilfe</span><button type="button" id="hilfe-zu" title="Schließen (Esc)">✕</button></div>
+    <div id="hilfe-inhalt"></div>
+</div>
 </body>
 </html>

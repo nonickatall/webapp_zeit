@@ -18,6 +18,7 @@ from jinja2 import Undefined
 
 from zeit_auth import MIN_PASSWORT, AuthDB
 from zeit_db import ZeitDB, lade_konfig, ortszeit, zeitraum_utc
+from zeit_hilfe import markdown_html
 
 cfg = lade_konfig()
 logging.basicConfig(filename=cfg["log_datei"], level=logging.INFO,
@@ -31,6 +32,8 @@ app = Flask(__name__)
 COOKIE = "zeit_session"
 RECHT_LESEN = "zef_lesen"
 OEFFENTLICH = {"login", "passwort", "static"}
+# Die Hilfe zur Anmeldung ist auch ohne Sitzung lesbar, alle anderen nur angemeldet.
+HILFE_OEFFENTLICH = {"Anmeldung"}
 
 
 def client_ip():
@@ -73,6 +76,8 @@ def vorlagen_werte():
 def anmeldung_pruefen():
     if request.endpoint in OEFFENTLICH:
         return None
+    if request.endpoint == "hilfe" and (request.view_args or {}).get("ueberschrift") in HILFE_OEFFENTLICH:
+        return None
     b = auth.sitzung_pruefen(request.cookies.get(COOKIE))
     if b is None:
         return redirect(url_for("login"))
@@ -104,6 +109,19 @@ def _cookie_setzen(resp, sid):
     # Sitzungs-Cookie ohne max_age: endet mit dem Browser, kein "angemeldet bleiben"
     resp.set_cookie(COOKIE, sid, secure=True, httponly=True, samesite="Strict", path="/zeit")
     return resp
+
+
+@app.route("/zeit/hilfe/<ueberschrift>")
+def hilfe(ueberschrift):
+    """Hilfetext einer Seite aus myhome_zeit.hilfe, als sicheres HTML."""
+    try:
+        r = db.hilfe(ueberschrift)
+    except Exception as e:
+        log.error(f"hilfe({ueberschrift}): {e}")
+        return {"ueberschrift": ueberschrift, "html": "<p>Die Hilfe ist gerade nicht verfügbar.</p>"}, 500
+    if r is None or not (r["text"] or "").strip():
+        return {"ueberschrift": ueberschrift, "html": "<p>Für diese Seite gibt es noch keinen Hilfetext.</p>"}
+    return {"ueberschrift": r["ueberschrift"], "html": markdown_html(r["text"])}
 
 
 @app.route("/")
@@ -139,7 +157,7 @@ def login():
                 log.info(f"login {name!r} -> myhome.user {mu['id']} von {client_ip()}")
                 return _cookie_setzen(redirect(url_for("anwesenheit")), sid)
     return render_template("login.html", fehler=fehler, abgelaufen=request.args.get("abgelaufen"),
-                           leerlauf_min=cfg["leerlauf_sek"] // 60, oeffentlich=True)
+                           leerlauf_min=cfg["leerlauf_sek"] // 60, oeffentlich=True, hilfe="Anmeldung")
 
 
 @app.route("/zeit/abmelden", methods=["POST"])
@@ -205,7 +223,7 @@ def _csv(name, kopf, zeilen):
 # ---------------------------------------------------------------- Seiten
 @app.route("/zeit/anwesenheit")
 def anwesenheit():
-    return render_template("anwesenheit.html", a=db.anwesenheit(), seite="anwesenheit")
+    return render_template("anwesenheit.html", a=db.anwesenheit(), seite="anwesenheit", hilfe="Anwesenheit")
 
 
 def _datensaetze_param():
@@ -222,7 +240,7 @@ def datensaetze():
     uid, von, bis = _datensaetze_param()
     zeilen = db.datensaetze(uid, *zeitraum_utc(von, bis))
     return render_template("datensaetze.html", zeilen=zeilen, uid=uid, von=von, bis=bis,
-                           mitarbeiter=db.mitarbeiter(), seite="datensaetze")
+                           mitarbeiter=db.mitarbeiter(), seite="datensaetze", hilfe="Datensaetze")
 
 
 @app.route("/zeit/datensaetze.csv")
@@ -243,19 +261,19 @@ def datensatz(ze_id):
     d = db.datensatz(ze_id)
     if d is None:
         abort(404)
-    return render_template("datensatz.html", d=d, seite="datensaetze")
+    return render_template("datensatz.html", d=d, seite="datensaetze", hilfe="Datensatz")
 
 
 @app.route("/zeit/offen")
 def offen():
-    return render_template("offen.html", f=db.offene_faelle(), seite="offen")
+    return render_template("offen.html", f=db.offene_faelle(), seite="offen", hilfe="Offen")
 
 
 @app.route("/zeit/zeitregeln")
 def zeitregeln():
     uid = _int("user")
     return render_template("zeitregeln.html", regeln=db.zeitregeln(uid), uid=uid,
-                           mitarbeiter=db.mitarbeiter(), seite="zeitregeln")
+                           mitarbeiter=db.mitarbeiter(), seite="zeitregeln", hilfe="Zeitregeln")
 
 
 def _monat():
@@ -274,7 +292,7 @@ def summen():
     j, m = _monat()
     zeilen, von, bis = db.summen(j, m)
     return render_template("summen.html", zeilen=zeilen, monat=f"{j:04d}-{m:02d}", von=von, bis=bis,
-                           seite="summen")
+                           seite="summen", hilfe="Summen")
 
 
 @app.route("/zeit/summen.csv")

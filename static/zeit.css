@@ -32,3 +32,13 @@ button, .knopf { font: inherit; padding: 5px 12px; border: none; border-radius: 
 .hinweis { color: #444; margin: 0; }
 .leer, .fuss { color: #666; }
 .fuss { font-size: 12px; }
+#hilfe-knopf { background: #fff; color: var(--blau); font-weight: bold; }
+#hilfe-fenster { position: fixed; top: 60px; right: 16px; width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 80px);
+    display: flex; flex-direction: column; background: #fff; border: 1px solid var(--rand); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 100; }
+#hilfe-fenster[hidden] { display: none; }
+.hilfe-kopf { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
+    background: var(--blau); color: #fff; border-radius: 8px 8px 0 0; font-weight: bold; }
+.hilfe-kopf button { background: transparent; color: #fff; font-size: 16px; padding: 0 6px; }
+#hilfe-inhalt { overflow: auto; padding: 12px 16px; }
+#hilfe-inhalt h2 { font-size: 18px; margin-top: 0; } #hilfe-inhalt h3 { font-size: 15px; } #hilfe-inhalt table { width: auto; }

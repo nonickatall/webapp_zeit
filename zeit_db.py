@@ -142,6 +142,12 @@ class ZeitDB:
             f"WHERE u.id <> 0 AND (u.id IN (SELECT user_id FROM {self.z}.zeiterfassung) "
             f"OR u.id IN (SELECT user_id FROM {self.z}.user_zeitregel)) ORDER BY u.`user`")
 
+    # ---------------- Hilfe
+    def hilfe(self, ueberschrift):
+        """Hilfetext einer Seite aus myhome_zeit.hilfe (None, wenn es keinen gibt)."""
+        return self.eins(f"SELECT ueberschrift, text FROM {self.z}.hilfe WHERE ueberschrift = %s",
+                         (ueberschrift,))
+
     # ---------------- 1. Anwesenheit
     def anwesenheit(self):
         jetzt = self.jetzt_utc()
