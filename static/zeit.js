@@ -343,3 +343,20 @@ Array.prototype.forEach.call(document.querySelectorAll('form.korrektur-form'), f
         });
     });
 })();
+
+/* Filter (GET-Formulare der Listen): Auswahl wirkt sofort, ohne "Filter"-Knopf.
+   Nur Auswahllisten und Datumsfelder; Auftragsformulare (.formular) sind nicht betroffen. */
+Array.prototype.forEach.call(document.querySelectorAll('form.filter-zeile:not(.formular)'), function (form) {
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+    var warte = null;
+    Array.prototype.forEach.call(form.querySelectorAll('select, input[type=date], input[type=month]'), function (feld) {
+        feld.addEventListener('change', function () {
+            if (feld.tagName === 'SELECT') { form.submit(); return; }
+            /* Datum: beim Tippen meldet der Browser schon "0002", "0020" ... -> erst ein
+               vollstaendiges Jahr (ab 2000) und kurz Ruhe abwarten */
+            clearTimeout(warte);
+            if (!/^(19|20)\d\d-/.test(feld.value)) return;
+            warte = setTimeout(function () { form.submit(); }, 700);
+        });
+    });
+});

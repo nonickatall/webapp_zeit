@@ -16,21 +16,7 @@
 {% if ze.klaeren %}<tr><th>Zur Klärung</th><td>{{ ze.klaerung_notiz or '–' }}</td></tr>{% endif %}
 </table>
 
-{% if darf_klaeren %}
-<h2 class="abschnitt-titel"><span>{{ 'Klärung aufheben' if ze.klaeren else 'Zur Klärung markieren' }}</span><span class="zusatz">{{ 'z.B. nach Rücksprache mit dem Mitarbeiter; Zeiten ändern Sie mit den Korrekturen' if ze.klaeren else 'der Datensatz erscheint dann unter „Offene Fälle“ und im Filter „zu klären“' }}</span></h2>
-<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('klaerung_neu', ze_id=ze.id) }}" data-ok="{{ 'Klärung aufgehoben' if ze.klaeren else 'Zur Klärung markiert' }}">
-    <input type="hidden" name="art" value="{{ 'aufheben' if ze.klaeren else 'markieren' }}">
-    <div class="filter-item breit">
-        <label for="kl_text">{{ 'Ergebnis *' if ze.klaeren else 'Notiz *' }}</label>
-        <input id="kl_text" type="text" name="text" maxlength="255" required placeholder="{{ 'z.B. laut Mitarbeiter um 16:30 gegangen, nachgetragen' if ze.klaeren else 'z.B. 42 Stunden am Stück – kann nicht sein' }}">
-    </div>
-    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">{{ 'Aufheben' if ze.klaeren else 'Markieren' }}</button></div>
-    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
-</form>
-<p class="ergebnis" hidden></p>
-{% endif %}
-
-{% if korrektur %}
+{# Reihenfolge nach Haeufigkeit: Stempelzeit, Abzug/Zuschlag, Klaerung, Zeitregel #}
 {% macro stand_felder(art) %}
     <input type="hidden" name="art" value="{{ art }}">
     <input type="hidden" name="stand_kommen" value="{{ korrektur.stand_kommen }}">
@@ -48,6 +34,7 @@
 {% set url = url_for('korrektur_neu', ze_id=ze.id) %}
 {% set zeit_muster = "([01][0-9]|2[0-3]):[0-5][0-9]" %}
 
+{% if korrektur %}
 <h2 class="abschnitt-titel"><span>{{ 'Gehen nachtragen' if korrektur.art == 'gehen_nachtragen' else 'Stempelzeit ändern' }}</span><span class="zusatz">wird über die Engine geändert, mit Spur und Begründung; die Pause des Tages wird neu verteilt</span></h2>
 <form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
     {{ stand_felder(korrektur.art) }}
@@ -75,6 +62,35 @@
 </form>
 <p class="ergebnis" hidden></p>
 
+{% if korrektur.abzug %}
+<h2 class="abschnitt-titel"><span>Abzug / Zuschlag</span><span class="zusatz">Minuten mit Vorzeichen: −90 = 90 Minuten zusätzliche Pause, +15 = Zuschlag; ersetzt den bisherigen Wert</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
+    {{ stand_felder('abzug') }}
+    <div class="filter-item">
+        <label for="k_abzug">Minuten (±) *</label>
+        <input id="k_abzug" type="number" name="korrektur_minuten" min="-1440" max="1440" step="1" value="{{ korrektur.korrektur_minuten }}" required class="schmal">
+    </div>
+    {{ knoepfe("z.B. heute 2 Stunden Pause statt 30 Minuten") }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+{% endif %}
+
+{% if darf_klaeren %}
+<h2 class="abschnitt-titel"><span>{{ 'Klärung aufheben' if ze.klaeren else 'Zur Klärung markieren' }}</span><span class="zusatz">{{ 'z.B. nach Rücksprache mit dem Mitarbeiter; Zeiten ändern Sie mit den Korrekturen' if ze.klaeren else 'der Datensatz erscheint dann unter „Offene Fälle“ und im Filter „zu klären“' }}</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('klaerung_neu', ze_id=ze.id) }}" data-ok="{{ 'Klärung aufgehoben' if ze.klaeren else 'Zur Klärung markiert' }}">
+    <input type="hidden" name="art" value="{{ 'aufheben' if ze.klaeren else 'markieren' }}">
+    <div class="filter-item breit">
+        <label for="kl_text">{{ 'Ergebnis *' if ze.klaeren else 'Notiz *' }}</label>
+        <input id="kl_text" type="text" name="text" maxlength="255" required placeholder="{{ 'z.B. laut Mitarbeiter um 16:30 gegangen, nachgetragen' if ze.klaeren else 'z.B. 42 Stunden am Stück – kann nicht sein' }}">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">{{ 'Aufheben' if ze.klaeren else 'Markieren' }}</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+
+{% if korrektur %}
 {% if korrektur.regeln is defined %}
 <h2 class="abschnitt-titel"><span>Zeitregel zuordnen</span><span class="zusatz">für diesen Tag gilt keine Zeitregel; die Pause des ganzen Tages wird nach der gewählten Regel verteilt</span></h2>
 {% if not korrektur.regeln %}<p class="leer">Für den Mitarbeiter gibt es noch keine Zeitregel – bitte zuerst unter „Zeitregeln“ anlegen.</p>{% else %}
@@ -92,19 +108,6 @@
 </form>
 <p class="ergebnis" hidden></p>
 {% endif %}
-{% endif %}
-
-{% if korrektur.abzug %}
-<h2 class="abschnitt-titel"><span>Abzug / Zuschlag</span><span class="zusatz">Minuten mit Vorzeichen: −90 = 90 Minuten zusätzliche Pause, +15 = Zuschlag; ersetzt den bisherigen Wert</span></h2>
-<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
-    {{ stand_felder('abzug') }}
-    <div class="filter-item">
-        <label for="k_abzug">Minuten (±) *</label>
-        <input id="k_abzug" type="number" name="korrektur_minuten" min="-1440" max="1440" step="1" value="{{ korrektur.korrektur_minuten }}" required class="schmal">
-    </div>
-    {{ knoepfe("z.B. heute 2 Stunden Pause statt 30 Minuten") }}
-</form>
-<p class="ergebnis" hidden></p>
 {% endif %}
 {% endif %}
 
