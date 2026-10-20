@@ -8,11 +8,38 @@
 <tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}</td></tr>
 <tr><th>Brutto</th><td>{{ ze.minuten | dauer }}</td></tr>
 <tr><th>Pause</th><td>{{ ze.pause_minuten | dauer }}
-    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}){% else %}<span class="marke rot">ohne Zeitregel</span>{% endif %}</td></tr>
+    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
 <tr><th>Korrektur</th><td>{{ ze.korrektur_minuten | dauer }}</td></tr>
 <tr><th>Netto</th><td>{{ ze.netto_minuten | dauer }}</td></tr>
 <tr><th>Manuell angelegt</th><td>{{ 'ja' if ze.manuell else 'nein' }}</td></tr>
 </table>
+
+{% if korrektur %}
+<h2 class="abschnitt-titel"><span>{{ 'Gehen nachtragen' if korrektur.art == 'gehen_nachtragen' else 'Stempelzeit ändern' }}</span><span class="zusatz">wird über die Engine geändert, mit Spur und Begründung; die Pause des Tages wird neu verteilt</span></h2>
+<form id="korrektur-neu" class="filter-zeile formular" autocomplete="off" data-url="{{ url_for('korrektur_neu', ze_id=ze.id) }}">
+    <input type="hidden" name="art" value="{{ korrektur.art }}">
+    <input type="hidden" name="stand_kommen" value="{{ korrektur.stand_kommen }}">
+    <input type="hidden" name="stand_gehen" value="{{ korrektur.stand_gehen }}">
+    <input type="hidden" name="stand_status" value="{{ korrektur.stand_status }}">
+    {% if korrektur.art == 'stempelzeit' %}
+    <div class="filter-item">
+        <label for="k_kommen">Kommen *</label>
+        <input id="k_kommen" type="datetime-local" name="kommen" value="{{ korrektur.kommen }}" required>
+    </div>
+    {% endif %}
+    <div class="filter-item">
+        <label for="k_gehen">Gehen *</label>
+        <input id="k_gehen" type="datetime-local" name="gehen" value="{{ korrektur.gehen }}" min="{{ korrektur.kommen }}" required>
+    </div>
+    <div class="filter-item breit">
+        <label for="k_grund">Begründung *</label>
+        <input id="k_grund" type="text" name="begruendung" maxlength="255" required placeholder="z.B. laut Mitarbeiter um 16:30 gegangen">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Speichern</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv" id="korrektur-erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p id="korrektur-ergebnis" class="ergebnis" hidden></p>
+{% endif %}
 
 <h2 class="abschnitt-titel"><span>Rohbuchungen ({{ d.buchungen | length }})</span><span class="zusatz">werden nie geändert</span></h2>
 {% if not d.buchungen %}<p class="leer">Keine (manuell angelegt).</p>{% else %}

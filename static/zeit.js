@@ -116,3 +116,76 @@
     form.addEventListener('submit', function (e) { e.preventDefault(); senden(daten()); });
     erneut.addEventListener('click', function () { if (letzte) senden(letzte); });
 })();
+
+/* Korrektur (Gehen nachtragen / Stempelzeit aendern): wie Zeitregel -- Auftrag senden,
+   Bestaetigung NUR aus zeiterfassung_auftrag (alle 300 ms, hoechstens 5 s),
+   "Erneut versuchen" mit derselben anfrage_id. */
+(function () {
+    var form = document.getElementById('korrektur-neu');
+    if (!form) return;
+    var ausgabe = document.getElementById('korrektur-ergebnis');
+    var erneut = document.getElementById('korrektur-erneut');
+    var knopf = form.querySelector('button[type=submit]');
+    var url = form.getAttribute('data-url');
+    var letzte = null;
+
+    function zeige(text, art) { ausgabe.textContent = text; ausgabe.className = 'ergebnis ' + art; ausgabe.hidden = false; }
+
+    function daten() {
+        var f = new FormData(form), d = {};
+        f.forEach(function (v, k) { d[k] = v; });
+        return d;
+    }
+
+    function abfragen(id) {
+        var start = Date.now();
+        (function frage() {
+            fetch('/zeit/auftrag/' + encodeURIComponent(id), { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (a) {
+                    if (a && a.ok) {
+                        knopf.disabled = false; letzte = null; erneut.hidden = true;
+                        if (a.ergebnis === 'ausgefuehrt') {
+                            zeige('Korrektur gespeichert – ' + a.uhrzeit + ' Uhr', 'ok');
+                            setTimeout(function () { window.location.reload(); }, 1500);
+                        } else {
+                            zeige('Nicht gespeichert: ' + (a.text || a.grund), 'fehler');
+                        }
+                        return;
+                    }
+                    if (Date.now() - start >= 5000) {
+                        knopf.disabled = false;
+                        zeige('Keine Bestätigung erhalten.', 'fehler');
+                        erneut.hidden = false;
+                        return;
+                    }
+                    setTimeout(frage, 300);
+                });
+        })();
+    }
+
+    function senden(d) {
+        knopf.disabled = true; erneut.hidden = true;
+        zeige('Wird gespeichert …', 'warten');
+        fetch(url, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Zeit-Auftrag': '1' },
+            body: JSON.stringify(d)
+        })
+            .then(function (r) {
+                if (r.redirected) { window.location.href = '/zeit/login?abgelaufen=1'; return null; }
+                return r.json();
+            })
+            .then(function (a) {
+                if (!a) return;
+                if (!a.ok) { knopf.disabled = false; zeige(a.fehler || 'Nicht gesendet.', 'fehler'); return; }
+                d.anfrage_id = a.anfrage_id; letzte = d;
+                abfragen(a.anfrage_id);
+            })
+            .catch(function () { knopf.disabled = false; zeige('Nicht gesendet.', 'fehler'); });
+    }
+
+    form.addEventListener('submit', function (e) { e.preventDefault(); senden(daten()); });
+    erneut.addEventListener('click', function () { if (letzte) senden(letzte); });
+})();

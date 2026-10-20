@@ -1,4 +1,4 @@
-"""zeit_web.py — Verwaltung der Zeiterfassung (webapp_zeit), Stufe A: nur lesen.
+"""zeit_web.py — Verwaltung der Zeiterfassung (webapp_zeit), Stufe A lesen, Stufe B Auftraege an die Engine.
 
 Getrennt von der Standard-Webapp. Eigene Anmeldung (zeit_auth.py), jede Route
 ausser Anmeldung/Einmal-Link verlangt eine gueltige Sitzung -- keine Ausnahme
@@ -35,6 +35,7 @@ app = Flask(__name__)
 COOKIE = "zeit_session"
 RECHT_LESEN = "zef_lesen"
 RECHT_ZEITREGEL = "zef_zeitregel"
+RECHT_KORREKTUR = "zef_korrektur"
 ANFRAGE_ID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 OEFFENTLICH = {"login", "passwort", "static"}
@@ -294,7 +295,21 @@ def datensatz(ze_id):
     d = db.datensatz(ze_id)
     if d is None:
         abort(404)
-    return render_template("datensatz.html", d=d, seite="datensaetze", hilfe="Datensatz")
+    ze = d["ze"]
+    # Korrigierbar: automatisch beendet (Gehen nachtragen) oder abgeschlossen (Stempelzeit), nie offen
+    art = {"automatisch_beendet": "gehen_nachtragen", "abgeschlossen": "stempelzeit"}.get(ze["status"])
+    korrektur = None
+    if art and db.hat_recht(g.mu["id"], RECHT_KORREKTUR):
+        def lokal(t):
+            return ortszeit(t).strftime("%Y-%m-%dT%H:%M") if t else ""
+        def stand(t):
+            return t.strftime("%Y-%m-%d %H:%M:%S") if t else ""
+        korrektur = {"art": art, "kommen": lokal(ze["kommen"]),
+                     # beim Nachtragen ist das automatische Gehen nur ein Platzhalter -> leer anbieten
+                     "gehen": "" if art == "gehen_nachtragen" else lokal(ze["gehen"]),
+                     "stand_kommen": stand(ze["kommen"]), "stand_gehen": stand(ze["gehen"]),
+                     "stand_status": ze["status"]}
+    return render_template("datensatz.html", d=d, korrektur=korrektur, seite="datensaetze", hilfe="Datensatz")
 
 
 OFFEN_GRUPPEN = [("automatisch_beendet", "Automatisch beendet (Gehen fehlt)"),
@@ -373,12 +388,62 @@ def zeitregel_neu():
     return {"ok": True, "anfrage_id": anfrage_id}
 
 
+@app.route("/zeit/datensatz/<int:ze_id>/korrektur", methods=["POST"])
+def korrektur_neu(ze_id):
+    """Auftrag "Korrektur" (Gehen nachtragen / Stempelzeit aendern) an die Engine. Die Webapp
+    schreibt nicht selbst; verbindlich prueft der Eingang das Recht, inhaltlich der zeiterfassung_server
+    (Status, Stand, Ueberschneidung, Zukunft, Tag)."""
+    d = _auftrag_anfrage()
+    if not db.hat_recht(g.mu["id"], RECHT_KORREKTUR):
+        _log_db(g.mu["name"], "korrektur", f"abgewiesen:kein_recht {RECHT_KORREKTUR}")
+        return {"ok": False, "fehler": "Kein Recht für Korrekturen."}, 403
+    anfrage_id = str(d.get("anfrage_id") or "").lower() or str(uuid.uuid4())
+    if not ANFRAGE_ID_RE.match(anfrage_id):
+        return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
+    art = str(d.get("art") or "")
+    if art not in ("gehen_nachtragen", "stempelzeit"):
+        return {"ok": False, "fehler": "Ungültige Korrekturart."}, 400
+    param = {
+        "zeiterfassung_id": ze_id, "art": art,
+        "kommen": str(d.get("kommen") or "") if art == "stempelzeit" else "",
+        "gehen": str(d.get("gehen") or ""),
+        "stand": {"kommen": str(d.get("stand_kommen") or ""), "gehen": str(d.get("stand_gehen") or ""),
+                  "status": str(d.get("stand_status") or "")},
+        "begruendung": str(d.get("begruendung") or "").strip()[:255],
+    }
+    if not param["gehen"] or (art == "stempelzeit" and not param["kommen"]):
+        return {"ok": False, "fehler": "Bitte die Zeiten ausfüllen."}, 400
+    if len(param["begruendung"]) < 3:
+        return {"ok": False, "fehler": "Bitte eine Begründung angeben (mindestens 3 Zeichen)."}, 400
+    nummer = (g.mu.get("nummer") or "").strip()
+    if not nummer:
+        return {"ok": False, "fehler": "Für Ihren Zugang ist keine Rufnummer hinterlegt."}, 403
+    try:
+        zeit_mqtt.senden(cfg, RECHT_KORREKTUR, nummer, anfrage_id, zeit_mqtt.param_kodieren(param))
+    except Exception as e:
+        log.error(f"korrektur_neu: Versand fehlgeschlagen: {e}")
+        return {"ok": False, "fehler": "Der Auftrag konnte nicht gesendet werden."}, 503
+    _log_db(g.mu["name"], "korrektur", f"auftrag gesendet fuer zeiterfassung {ze_id} ({art})")
+    log.info(f"korrektur_neu: {g.mu['name']} -> zeiterfassung {ze_id} {art}, anfrage_id={anfrage_id}")
+    return {"ok": True, "anfrage_id": anfrage_id}
+
+
 GRUND_TEXT = {
     "rueckwirkend": "„gültig ab“ darf nicht in der Vergangenheit liegen.",
     "bereits_vorhanden": "Für diesen Mitarbeiter gibt es ab diesem Tag schon eine Zeitregel.",
     "mitarbeiter_unbekannt": "Der Mitarbeiter ist unbekannt oder gesperrt.",
     "begruendung_fehlt": "Die Begründung fehlt.",
     "bearbeiter_unbekannt": "Ihr Zugang konnte keinem aktiven Benutzer zugeordnet werden.",
+    "datensatz_unbekannt": "Den Datensatz gibt es nicht.",
+    "inzwischen_geaendert": "Der Datensatz wurde inzwischen geändert. Bitte die Seite neu laden.",
+    "falscher_status": "Dieser Datensatz kann so nicht korrigiert werden (Status passt nicht).",
+    "gehen_vor_kommen": "Gehen muss nach Kommen liegen.",
+    "in_zukunft": "Die Zeit darf nicht in der Zukunft liegen.",
+    "anderer_tag": "Kommen darf nicht auf einen anderen Tag verschoben werden.",
+    "keine_aenderung": "Es wurde nichts geändert.",
+    "ueberschneidung": "Die Zeiten überschneiden sich mit einem anderen Datensatz des Mitarbeiters.",
+    "zeit_ungueltig": "Die Zeitangabe ist ungültig.",
+    "zeit_umstellung": "Diese Uhrzeit gibt es wegen der Zeitumstellung nicht eindeutig.",
 }
 
 
@@ -394,7 +459,8 @@ def auftrag(anfrage_id):
     text = GRUND_TEXT.get(grund) or (f"Ungültige Angabe ({grund.split(':', 1)[1]})."
                                      if grund.startswith("param_ungueltig:") else grund)
     return {"ok": True, "ergebnis": r["ergebnis"], "grund": grund, "text": text,
-            "zeitregel_id": r["zeitregel_id"], "uhrzeit": f_zeit(r["eingegangen"], "%H:%M")}
+            "zeitregel_id": r["zeitregel_id"],
+            "zeiterfassung_id": r["zeiterfassung_id"], "uhrzeit": f_zeit(r["eingegangen"], "%H:%M")}
 
 
 def _monat():
