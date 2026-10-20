@@ -312,6 +312,15 @@ def datensatz(ze_id):
                      "gehen": "" if art == "gehen_nachtragen" else lokal(ze["gehen"]),
                      "stand_kommen": stand(ze["kommen"]), "stand_gehen": stand(ze["gehen"]),
                      "stand_status": ze["status"]}
+        if art == "stempelzeit":
+            # Abzug/Zuschlag nur mit Pause (sonst gibt es kein Netto)
+            korrektur["abzug"] = ze["pause_minuten"] is not None
+            korrektur["korrektur_minuten"] = int(ze.get("korrektur_minuten") or 0)
+            # Zeitregel zuordnen nur, wenn fuer den Tag keine Regel nach gueltig_ab gilt
+            tag = ortszeit(ze["kommen"]).date()
+            regeln = db.zeitregeln(ze["user_id"])
+            if not any(r["gueltig_ab"] <= tag for r in regeln):
+                korrektur["regeln"] = regeln
     return render_template("datensatz.html", d=d, korrektur=korrektur, zurueck=_zurueck_ziel(),
                            seite="datensaetze", hilfe="Datensatz")
 
@@ -415,18 +424,29 @@ def korrektur_neu(ze_id):
     if not ANFRAGE_ID_RE.match(anfrage_id):
         return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
     art = str(d.get("art") or "")
-    if art not in ("gehen_nachtragen", "stempelzeit"):
+    if art not in ("gehen_nachtragen", "stempelzeit", "abzug", "zeitregel"):
         return {"ok": False, "fehler": "Ungültige Korrekturart."}, 400
     param = {
         "zeiterfassung_id": ze_id, "art": art,
-        "kommen": str(d.get("kommen") or "") if art == "stempelzeit" else "",
-        "gehen": str(d.get("gehen") or ""),
         "stand": {"kommen": str(d.get("stand_kommen") or ""), "gehen": str(d.get("stand_gehen") or ""),
                   "status": str(d.get("stand_status") or "")},
         "begruendung": str(d.get("begruendung") or "").strip()[:255],
     }
-    if not param["gehen"] or (art == "stempelzeit" and not param["kommen"]):
-        return {"ok": False, "fehler": "Bitte die Zeiten ausfüllen."}, 400
+    if art in ("gehen_nachtragen", "stempelzeit"):
+        param["kommen"] = str(d.get("kommen") or "") if art == "stempelzeit" else ""
+        param["gehen"] = str(d.get("gehen") or "")
+        if not param["gehen"] or (art == "stempelzeit" and not param["kommen"]):
+            return {"ok": False, "fehler": "Bitte die Zeiten ausfüllen."}, 400
+    elif art == "abzug":
+        try:
+            param["korrektur_minuten"] = int(d.get("korrektur_minuten"))
+        except (TypeError, ValueError):
+            return {"ok": False, "fehler": "Bitte die Minuten als ganze Zahl angeben (z.B. -90)."}, 400
+    else:
+        try:
+            param["zeitregel_id"] = int(d.get("zeitregel_id"))
+        except (TypeError, ValueError):
+            return {"ok": False, "fehler": "Bitte eine Zeitregel wählen."}, 400
     if len(param["begruendung"]) < 3:
         return {"ok": False, "fehler": "Bitte eine Begründung angeben (mindestens 3 Zeichen)."}, 400
     nummer = (g.mu.get("nummer") or "").strip()
@@ -458,6 +478,10 @@ GRUND_TEXT = {
     "ueberschneidung": "Die Zeiten überschneiden sich mit einem anderen Datensatz des Mitarbeiters.",
     "zeit_ungueltig": "Die Zeitangabe ist ungültig.",
     "zeit_umstellung": "Diese Uhrzeit gibt es wegen der Zeitumstellung nicht eindeutig.",
+    "netto_negativ": "Der Abzug ist größer als die Netto-Arbeitszeit.",
+    "ohne_zeitregel": "Ohne Pause gibt es kein Netto – bitte zuerst eine Zeitregel zuordnen.",
+    "regel_vorhanden": "Für diesen Tag gilt bereits eine Zeitregel.",
+    "zeitregel_unbekannt": "Diese Zeitregel gehört nicht zum Mitarbeiter.",
 }
 
 

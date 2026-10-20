@@ -2,6 +2,8 @@
    dunkle Reiterleiste, blauer Seitentitel mit Hilfe-Knopf, graue Filterzeile,
    blaue Abschnittsueberschrift, Tabelle mit blauem Kopf und Zebra-Zeilen. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* hidden gilt immer -- sonst ueberstimmt z.B. .filter-item button {display:inline-block} es */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f0f0; color: #222; }
 
@@ -122,3 +124,15 @@ code { font-family: Consolas, monospace; }
 .ergebnis.ok { color: #155724; background: #d4edda; border: 1px solid #c3e6cb; }
 .ergebnis.fehler { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; }
 .ergebnis.warten { color: #37474f; background: #eceff1; border: 1px solid #cfd8dc; }
+
+/* ---------------- Uhr (Uhrzeit waehlen) ---------------- */
+.filter-item input.uhrzeit { width: 64px; text-align: center; }
+.uhr { position: absolute; z-index: 1000; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .25); padding: 8px; user-select: none; -webkit-user-select: none; }
+.uhr-kopf { font-size: 28px; font-weight: bold; text-align: center; color: #2c3e50; padding: 2px 0 8px; }
+.uhr-kopf span { cursor: pointer; padding: 0 6px; border-radius: 3px; }
+.uhr-kopf span.aktiv { background: #e3f0ff; color: #1565c0; }
+.uhr-blatt { display: block; touch-action: none; cursor: pointer; }
+.uhr-fuss { display: flex; justify-content: flex-end; gap: 6px; padding-top: 6px; }
+.uhr-fuss button { border: none; border-radius: 3px; padding: 4px 12px; font-weight: bold; cursor: pointer; color: #fff; background: #6c757d; }
+.uhr-fuss button.uhr-ok { background: #28a745; }

@@ -16,41 +16,81 @@
 </table>
 
 {% if korrektur %}
-<h2 class="abschnitt-titel"><span>{{ 'Gehen nachtragen' if korrektur.art == 'gehen_nachtragen' else 'Stempelzeit ändern' }}</span><span class="zusatz">wird über die Engine geändert, mit Spur und Begründung; die Pause des Tages wird neu verteilt</span></h2>
-<form id="korrektur-neu" class="filter-zeile formular" autocomplete="off" data-url="{{ url_for('korrektur_neu', ze_id=ze.id) }}">
-    <input type="hidden" name="art" value="{{ korrektur.art }}">
+{% macro stand_felder(art) %}
+    <input type="hidden" name="art" value="{{ art }}">
     <input type="hidden" name="stand_kommen" value="{{ korrektur.stand_kommen }}">
     <input type="hidden" name="stand_gehen" value="{{ korrektur.stand_gehen }}">
     <input type="hidden" name="stand_status" value="{{ korrektur.stand_status }}">
-    {% if korrektur.art == 'stempelzeit' %}
-    <div class="filter-item">
-        <label for="k_kommen">Kommen *</label>
-        <input id="k_kommen" type="datetime-local" name="kommen" value="{{ korrektur.kommen }}" required>
-    </div>
-    {% endif %}
-    {% if korrektur.art == 'gehen_nachtragen' %}
-    <div class="filter-item">
-        <label for="k_datum">Gehen Datum *</label>
-        <input id="k_datum" type="date" name="gehen_datum" value="{{ korrektur.datum }}" min="{{ korrektur.datum }}" required>
-    </div>
-    <div class="filter-item">
-        <label for="k_uhrzeit">Gehen Uhrzeit *</label>
-        <input id="k_uhrzeit" type="time" name="gehen_uhrzeit" required>
-    </div>
-    {% else %}
-    <div class="filter-item">
-        <label for="k_gehen">Gehen *</label>
-        <input id="k_gehen" type="datetime-local" name="gehen" value="{{ korrektur.gehen }}" min="{{ korrektur.kommen }}" required>
-    </div>
-    {% endif %}
+{% endmacro %}
+{% macro knoepfe(beispiel) %}
     <div class="filter-item breit">
-        <label for="k_grund">Begründung *</label>
-        <input id="k_grund" type="text" name="begruendung" maxlength="255" required placeholder="z.B. laut Mitarbeiter um 16:30 gegangen">
+        <label>Begründung *</label>
+        <input type="text" name="begruendung" maxlength="255" required placeholder="{{ beispiel }}">
     </div>
     <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Speichern</button></div>
-    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv" id="korrektur-erneut" hidden>Erneut versuchen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+{% endmacro %}
+{% set url = url_for('korrektur_neu', ze_id=ze.id) %}
+{% set zeit_muster = "([01][0-9]|2[0-3]):[0-5][0-9]" %}
+
+<h2 class="abschnitt-titel"><span>{{ 'Gehen nachtragen' if korrektur.art == 'gehen_nachtragen' else 'Stempelzeit ändern' }}</span><span class="zusatz">wird über die Engine geändert, mit Spur und Begründung; die Pause des Tages wird neu verteilt</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
+    {{ stand_felder(korrektur.art) }}
+    {% if korrektur.art == 'stempelzeit' %}
+    <div class="filter-item">
+        <label for="k_kdatum">Kommen Datum *</label>
+        <input id="k_kdatum" type="date" name="kommen_datum" value="{{ korrektur.kommen[:10] }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="k_kzeit">Kommen Uhrzeit *</label>
+        <input id="k_kzeit" type="text" class="uhrzeit" name="kommen_uhrzeit" value="{{ korrektur.kommen[11:16] }}"
+               pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5" inputmode="numeric" required>
+    </div>
+    {% endif %}
+    <div class="filter-item">
+        <label for="k_gdatum">Gehen Datum *</label>
+        <input id="k_gdatum" type="date" name="gehen_datum" value="{{ korrektur.gehen[:10] if korrektur.gehen else korrektur.datum }}" min="{{ korrektur.datum }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="k_gzeit">Gehen Uhrzeit *</label>
+        <input id="k_gzeit" type="text" class="uhrzeit" name="gehen_uhrzeit" value="{{ korrektur.gehen[11:16] }}"
+               pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5" inputmode="numeric" required>
+    </div>
+    {{ knoepfe("z.B. laut Mitarbeiter um 16:30 gegangen") }}
 </form>
-<p id="korrektur-ergebnis" class="ergebnis" hidden></p>
+<p class="ergebnis" hidden></p>
+
+{% if korrektur.regeln is defined %}
+<h2 class="abschnitt-titel"><span>Zeitregel zuordnen</span><span class="zusatz">für diesen Tag gilt keine Zeitregel; die Pause des ganzen Tages wird nach der gewählten Regel verteilt</span></h2>
+{% if not korrektur.regeln %}<p class="leer">Für den Mitarbeiter gibt es noch keine Zeitregel – bitte zuerst unter „Zeitregeln“ anlegen.</p>{% else %}
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
+    {{ stand_felder('zeitregel') }}
+    <div class="filter-item">
+        <label for="k_regel">Zeitregel *</label>
+        <select id="k_regel" name="zeitregel_id" required>
+            {% for r in korrektur.regeln %}
+            <option value="{{ r.id }}" {{ 'selected' if ze.zeitregel_id == r.id }}>Nr. {{ r.id }}: {{ r.pause_minuten }} min ab {{ r.pause_ab_minuten }} min (gültig ab {{ r.gueltig_ab.strftime('%d.%m.%Y') }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    {{ knoepfe("z.B. Regel galt schon vor Einführung der Zeiterfassung") }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+{% endif %}
+
+{% if korrektur.abzug %}
+<h2 class="abschnitt-titel"><span>Abzug / Zuschlag</span><span class="zusatz">Minuten mit Vorzeichen: −90 = 90 Minuten zusätzliche Pause, +15 = Zuschlag; ersetzt den bisherigen Wert</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}">
+    {{ stand_felder('abzug') }}
+    <div class="filter-item">
+        <label for="k_abzug">Minuten (±) *</label>
+        <input id="k_abzug" type="number" name="korrektur_minuten" min="-1440" max="1440" step="1" value="{{ korrektur.korrektur_minuten }}" required class="schmal">
+    </div>
+    {{ knoepfe("z.B. heute 2 Stunden Pause statt 30 Minuten") }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
 {% endif %}
 
 <h2 class="abschnitt-titel"><span>Rohbuchungen ({{ d.buchungen | length }})</span><span class="zusatz">werden nie geändert</span></h2>
