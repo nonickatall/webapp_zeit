@@ -2,6 +2,7 @@
 {% block titel %}Datensatz {{ d.ze.id }} – {{ d.ze.name or ('? (' ~ d.ze.user_id ~ ')') }}{% endblock %}
 {% block inhalt %}
 {% set ze = d.ze %}
+<a class="btn-zurueck" href="{{ zurueck }}">← Zurück</a>
 <table class="eigenschaften">
 <tr><th>Kommen</th><td>{{ ze.kommen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
 <tr><th>Gehen</th><td>{{ ze.gehen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
@@ -27,10 +28,21 @@
         <input id="k_kommen" type="datetime-local" name="kommen" value="{{ korrektur.kommen }}" required>
     </div>
     {% endif %}
+    {% if korrektur.art == 'gehen_nachtragen' %}
+    <div class="filter-item">
+        <label for="k_datum">Gehen Datum *</label>
+        <input id="k_datum" type="date" name="gehen_datum" value="{{ korrektur.datum }}" min="{{ korrektur.datum }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="k_uhrzeit">Gehen Uhrzeit *</label>
+        <input id="k_uhrzeit" type="time" name="gehen_uhrzeit" required>
+    </div>
+    {% else %}
     <div class="filter-item">
         <label for="k_gehen">Gehen *</label>
         <input id="k_gehen" type="datetime-local" name="gehen" value="{{ korrektur.gehen }}" min="{{ korrektur.kommen }}" required>
     </div>
+    {% endif %}
     <div class="filter-item breit">
         <label for="k_grund">Begründung *</label>
         <input id="k_grund" type="text" name="begruendung" maxlength="255" required placeholder="z.B. laut Mitarbeiter um 16:30 gegangen">

@@ -14,6 +14,7 @@ import io
 import logging
 import re
 import uuid
+from urllib.parse import urlsplit
 
 from flask import Flask, Response, abort, g, redirect, render_template, request, url_for
 from jinja2 import Undefined
@@ -305,11 +306,24 @@ def datensatz(ze_id):
         def stand(t):
             return t.strftime("%Y-%m-%d %H:%M:%S") if t else ""
         korrektur = {"art": art, "kommen": lokal(ze["kommen"]),
+                     # Gehen nachtragen: Datum vorbelegt (Tag des Kommens), Uhrzeit leer und Pflicht
+                     "datum": ortszeit(ze["kommen"]).strftime("%Y-%m-%d"),
                      # beim Nachtragen ist das automatische Gehen nur ein Platzhalter -> leer anbieten
                      "gehen": "" if art == "gehen_nachtragen" else lokal(ze["gehen"]),
                      "stand_kommen": stand(ze["kommen"]), "stand_gehen": stand(ze["gehen"]),
                      "stand_status": ze["status"]}
-    return render_template("datensatz.html", d=d, korrektur=korrektur, seite="datensaetze", hilfe="Datensatz")
+    return render_template("datensatz.html", d=d, korrektur=korrektur, zurueck=_zurueck_ziel(),
+                           seite="datensaetze", hilfe="Datensatz")
+
+
+def _zurueck_ziel():
+    """Zurueck-Knopf: die aufrufende Liste dieser Webapp (mit ihren Filtern), sonst die Datensaetze.
+    Nur eigene /zeit/-Seiten, nie eine fremde Adresse und nie die Detailseite selbst."""
+    ref = urlsplit(request.referrer or "")
+    if (ref.netloc == request.host and ref.path.startswith("/zeit/")
+            and not ref.path.startswith("/zeit/datensatz/") and ref.path != "/zeit/login"):
+        return ref.path + ("?" + ref.query if ref.query else "")
+    return url_for("datensaetze")
 
 
 OFFEN_GRUPPEN = [("automatisch_beendet", "Automatisch beendet (Gehen fehlt)"),

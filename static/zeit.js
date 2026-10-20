@@ -134,6 +134,10 @@
     function daten() {
         var f = new FormData(form), d = {};
         f.forEach(function (v, k) { d[k] = v; });
+        if (d.gehen_datum !== undefined) {            /* Gehen nachtragen: Datum + Uhrzeit */
+            d.gehen = d.gehen_datum && d.gehen_uhrzeit ? d.gehen_datum + 'T' + d.gehen_uhrzeit : '';
+            delete d.gehen_datum; delete d.gehen_uhrzeit;
+        }
         return d;
     }
 
