@@ -37,6 +37,7 @@ COOKIE = "zeit_session"
 RECHT_LESEN = "zef_lesen"
 RECHT_ZEITREGEL = "zef_zeitregel"
 RECHT_KORREKTUR = "zef_korrektur"
+RECHT_KLAEREN = "zef_klaeren"
 ANFRAGE_ID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 OEFFENTLICH = {"login", "passwort", "static"}
@@ -249,6 +250,7 @@ STATUS_FILTER = {
     "ohne_zeitregel": ("ohne Zeitregel", lambda r: r["status"] == "abgeschlossen" and r["pause_minuten"] is None),
     "korrigiert": ("korrigiert", lambda r: bool(r["korrigiert"])),
     "manuell": ("manuell angelegt", lambda r: bool(r["manuell"])),
+    "klaeren": ("zu klären", lambda r: bool(r.get("klaeren"))),
 }
 
 
@@ -336,7 +338,9 @@ def datensatz(ze_id):
             regeln = db.zeitregeln(ze["user_id"])
             if not any(r["gueltig_ab"] <= tag for r in regeln):
                 korrektur["regeln"] = regeln
-    return render_template("datensatz.html", d=d, korrektur=korrektur, zurueck=_zurueck_ziel(),
+    darf_klaeren = db.hat_recht(g.mu["id"], RECHT_KLAEREN)
+    return render_template("datensatz.html", d=d, korrektur=korrektur, darf_klaeren=darf_klaeren,
+                           zurueck=_zurueck_ziel(),
                            seite="datensaetze", hilfe="Datensatz")
 
 
@@ -350,7 +354,8 @@ def _zurueck_ziel():
     return url_for("datensaetze")
 
 
-OFFEN_GRUPPEN = [("automatisch_beendet", "Automatisch beendet (Gehen fehlt)"),
+OFFEN_GRUPPEN = [("zu_klaeren", "Zur Klärung markiert"),
+                 ("automatisch_beendet", "Automatisch beendet (Gehen fehlt)"),
                  ("ohne_zeitregel", "Ohne Pause wegen fehlender Zeitregel"),
                  ("offen_alt", "Offen seit vor heute")]
 
@@ -450,6 +455,37 @@ def korrektur_neu(ze_id):
     return _korrektur_senden(d, ze_id, art, param)
 
 
+@app.route("/zeit/datensatz/<int:ze_id>/klaerung", methods=["POST"])
+def klaerung_neu(ze_id):
+    """Auftrag "zur Klaerung markieren" (Notiz) bzw. "Klaerung aufheben" (Ergebnis) -- Befehl zef_klaeren."""
+    d = _auftrag_anfrage()
+    if not db.hat_recht(g.mu["id"], RECHT_KLAEREN):
+        _log_db(g.mu["name"], "klaerung", f"abgewiesen:kein_recht {RECHT_KLAEREN}")
+        return {"ok": False, "fehler": "Kein Recht zum Markieren."}, 403
+    anfrage_id = str(d.get("anfrage_id") or "").lower() or str(uuid.uuid4())
+    if not ANFRAGE_ID_RE.match(anfrage_id):
+        return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
+    art = str(d.get("art") or "")
+    if art not in ("markieren", "aufheben"):
+        return {"ok": False, "fehler": "Ungültige Angabe."}, 400
+    text = str(d.get("text") or "").strip()[:255]
+    if len(text) < 3:
+        return {"ok": False, "fehler": "Bitte eine Notiz (beim Markieren) bzw. das Ergebnis (beim Aufheben) "
+                                       "angeben, mindestens 3 Zeichen."}, 400
+    nummer = (g.mu.get("nummer") or "").strip()
+    if not nummer:
+        return {"ok": False, "fehler": "Für Ihren Zugang ist keine Rufnummer hinterlegt."}, 403
+    param = {"zeiterfassung_id": ze_id, "art": art, "text": text}
+    try:
+        zeit_mqtt.senden(cfg, RECHT_KLAEREN, nummer, anfrage_id, zeit_mqtt.param_kodieren(param))
+    except Exception as e:
+        log.error(f"klaerung: Versand fehlgeschlagen: {e}")
+        return {"ok": False, "fehler": "Der Auftrag konnte nicht gesendet werden."}, 503
+    _log_db(g.mu["name"], "klaerung", f"auftrag gesendet fuer zeiterfassung {ze_id} ({art})")
+    log.info(f"klaerung: {g.mu['name']} -> zeiterfassung {ze_id} {art}, anfrage_id={anfrage_id}")
+    return {"ok": True, "anfrage_id": anfrage_id}
+
+
 def _korrektur_senden(d, ze_id, art, param):
     """Gemeinsamer Teil aller zef_korrektur-Auftraege: Recht, anfrage_id, Zeiten, Begruendung, Versand."""
     if not db.hat_recht(g.mu["id"], RECHT_KORREKTUR):
@@ -502,6 +538,10 @@ GRUND_TEXT = {
     "ohne_zeitregel": "Ohne Pause gibt es kein Netto – bitte zuerst eine Zeitregel zuordnen.",
     "regel_vorhanden": "Für diesen Tag gilt bereits eine Zeitregel.",
     "zeitregel_unbekannt": "Diese Zeitregel gehört nicht zum Mitarbeiter.",
+    "bereits_markiert": "Der Datensatz ist schon zur Klärung markiert.",
+    "nicht_markiert": "Der Datensatz ist nicht (mehr) zur Klärung markiert.",
+    "notiz_fehlt": "Bitte eine Notiz angeben.",
+    "ergebnis_fehlt": "Bitte das Ergebnis der Klärung angeben.",
 }
 
 

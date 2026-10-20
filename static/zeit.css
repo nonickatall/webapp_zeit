@@ -144,3 +144,5 @@ details.anlegen > summary { cursor: pointer; display: inline-block; padding: 4px
 details.anlegen > summary::-webkit-details-marker { display: none; }
 details.anlegen > summary .zusatz { font-weight: normal; opacity: .85; }
 details.anlegen[open] > summary { background: #6c757d; }
+
+.notiz { color: #6d4c00; font-size: 11px; }

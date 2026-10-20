@@ -254,17 +254,13 @@ class ZeitDB:
         basis = (f"SELECT ze.*, u.`user` AS name FROM {self.z}.zeiterfassung ze "
                  f"LEFT JOIN {self.m}.`user` u ON u.id = ze.user_id WHERE ")
         faelle = {
+            "zu_klaeren": self.abfrage(basis + "ze.klaeren = 1 ORDER BY ze.kommen"),
             "automatisch_beendet": self.abfrage(basis + "ze.status = 'automatisch_beendet' ORDER BY ze.kommen"),
             "ohne_zeitregel": self.abfrage(basis + "ze.status = 'abgeschlossen' AND ze.pause_minuten IS NULL "
                                                    "ORDER BY ze.kommen"),
             "offen_alt": self.abfrage(basis + "ze.status = 'offen' AND ze.kommen < %s ORDER BY ze.kommen",
                                       (heute_beginn,)),
         }
-        # Klaerungen (Plan 5.4a) kommen erst mit Stufe B; ihr Schema steht noch nicht
-        # fest -> nur anzeigen, OB die Tabelle existiert, keine Spalten voraussetzen.
-        faelle["klaerung_tabelle"] = self.eins(
-            "SELECT 1 AS ok FROM information_schema.tables WHERE table_schema = %s "
-            "AND table_name = 'zeiterfassung_klaerung'", (self.z,)) is not None
         return faelle
 
     # ---------------- 5. Zeitregeln

@@ -6,14 +6,29 @@
 <table class="eigenschaften">
 <tr><th>Kommen</th><td>{{ ze.kommen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
 <tr><th>Gehen</th><td>{{ ze.gehen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
-<tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}</td></tr>
+<tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}{% if ze.klaeren %} <span class="marke gelb">klären</span>{% endif %}</td></tr>
 <tr><th>Brutto</th><td>{{ ze.minuten | dauer }}</td></tr>
 <tr><th>Pause</th><td>{{ ze.pause_minuten | dauer }}
     {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
 <tr><th>Korrektur</th><td>{{ ze.korrektur_minuten | dauer }}</td></tr>
 <tr><th>Netto</th><td>{{ ze.netto_minuten | dauer }}</td></tr>
 <tr><th>Manuell angelegt</th><td>{{ 'ja' if ze.manuell else 'nein' }}</td></tr>
+{% if ze.klaeren %}<tr><th>Zur Klärung</th><td>{{ ze.klaerung_notiz or '–' }}</td></tr>{% endif %}
 </table>
+
+{% if darf_klaeren %}
+<h2 class="abschnitt-titel"><span>{{ 'Klärung aufheben' if ze.klaeren else 'Zur Klärung markieren' }}</span><span class="zusatz">{{ 'z.B. nach Rücksprache mit dem Mitarbeiter; Zeiten ändern Sie mit den Korrekturen' if ze.klaeren else 'der Datensatz erscheint dann unter „Offene Fälle“ und im Filter „zu klären“' }}</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('klaerung_neu', ze_id=ze.id) }}" data-ok="{{ 'Klärung aufgehoben' if ze.klaeren else 'Zur Klärung markiert' }}">
+    <input type="hidden" name="art" value="{{ 'aufheben' if ze.klaeren else 'markieren' }}">
+    <div class="filter-item breit">
+        <label for="kl_text">{{ 'Ergebnis *' if ze.klaeren else 'Notiz *' }}</label>
+        <input id="kl_text" type="text" name="text" maxlength="255" required placeholder="{{ 'z.B. laut Mitarbeiter um 16:30 gegangen, nachgetragen' if ze.klaeren else 'z.B. 42 Stunden am Stück – kann nicht sein' }}">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">{{ 'Aufheben' if ze.klaeren else 'Markieren' }}</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
 
 {% if korrektur %}
 {% macro stand_felder(art) %}

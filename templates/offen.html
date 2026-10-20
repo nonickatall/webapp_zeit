@@ -25,13 +25,4 @@
 <tbody>{% for r in f[schluessel] %}{% include "_datensatz_zeile.html" %}{% endfor %}</tbody>
 </table></div>{% endif %}
 {% endfor %}
-
-{% if not art %}
-<h2 class="abschnitt-titel"><span>Offene Klärungen</span></h2>
-{% if not f.klaerung_tabelle %}
-<p class="leer">Klärungen kommen mit Stufe B (Tabelle zeiterfassung_klaerung ist noch nicht angelegt).</p>
-{% else %}
-<p class="leer">Die Tabelle existiert; die Anzeige folgt mit Stufe B, sobald ihr Aufbau festliegt.</p>
-{% endif %}
-{% endif %}
 {% endblock %}

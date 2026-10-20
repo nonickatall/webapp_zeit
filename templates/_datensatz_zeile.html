@@ -1,4 +1,4 @@
-{# eine Zeile Zeitdatensatz; Markierungen: korrigiert, automatisch_beendet, ohne Zeitregel, offen #}
+{# eine Zeile Zeitdatensatz; Markierungen: korrigiert, automatisch_beendet, ohne Zeitregel, offen, klaeren (mit Notiz) #}
 <tr class="{{ 'warnung' if r.status != 'abgeschlossen' or r.pause_minuten is none }}">
     {% if mit_name %}<td>{{ r.name or ('? (' ~ r.user_id ~ ')') }}</td>{% endif %}
     <td>{{ r.kommen | zeit }}</td>
@@ -13,6 +13,7 @@
         {% else %}abgeschlossen{% endif %}
         {% if r.status == 'abgeschlossen' and r.pause_minuten is none %}<span class="marke rot">ohne Zeitregel</span>{% endif %}
         {% if r.korrigiert %}<span class="marke blau">korrigiert</span>{% endif %}
+        {% if r.klaeren %}<span class="marke gelb" title="{{ r.klaerung_notiz or '' }}">klären</span>{% if r.klaerung_notiz %} <span class="notiz">{{ r.klaerung_notiz }}</span>{% endif %}{% endif %}
     </td>
     <td>{{ r.terminal_kommen or '–' }}{% if r.terminal_gehen and r.terminal_gehen != r.terminal_kommen %} / {{ r.terminal_gehen }}{% endif %}</td>
     <td>{{ 'ja' if r.manuell else 'nein' }}</td>

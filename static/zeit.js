@@ -167,7 +167,7 @@ Array.prototype.forEach.call(document.querySelectorAll('form.korrektur-form'), f
                                     window.location.href = '/zeit/datensatz/' + encodeURIComponent(a.zeiterfassung_id);
                                 }, 1500);
                             } else {
-                                zeige('Korrektur gespeichert – ' + a.uhrzeit + ' Uhr', 'ok');
+                                zeige((form.getAttribute('data-ok') || 'Korrektur gespeichert') + ' – ' + a.uhrzeit + ' Uhr', 'ok');
                                 setTimeout(function () { window.location.reload(); }, 1500);
                             }
                         } else {
