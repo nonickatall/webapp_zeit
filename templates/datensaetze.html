@@ -25,6 +25,46 @@
         <a class="btn-csv" href="{{ url_for('datensaetze_csv', user=uid or '', von=von.isoformat(), bis=bis.isoformat(), status=status) }}">CSV</a></div>
 </form>
 
+{% if darf_anlegen %}
+{% set zeit_muster = "([01][0-9]|2[0-3]):[0-5][0-9]" %}
+<details class="anlegen">
+<summary>+ Datensatz anlegen <span class="zusatz">(Keyfob verloren, Terminal ausgefallen – nur mit Kommen und Gehen)</span></summary>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('datensatz_neu') }}" data-neu="1">
+    <input type="hidden" name="art" value="anlegen">
+    <div class="filter-item">
+        <label for="a_user">Mitarbeiter *</label>
+        <select id="a_user" name="user_id" required>
+            <option value="">– bitte wählen –</option>
+            {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="filter-item">
+        <label for="a_kdatum">Kommen Datum *</label>
+        <input id="a_kdatum" type="date" name="kommen_datum" value="{{ heute.isoformat() }}" max="{{ heute.isoformat() }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="a_kzeit">Kommen Uhrzeit *</label>
+        <input id="a_kzeit" type="text" class="uhrzeit" name="kommen_uhrzeit" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5" inputmode="numeric" required>
+    </div>
+    <div class="filter-item">
+        <label for="a_gdatum">Gehen Datum *</label>
+        <input id="a_gdatum" type="date" name="gehen_datum" value="{{ heute.isoformat() }}" max="{{ heute.isoformat() }}" required>
+    </div>
+    <div class="filter-item">
+        <label for="a_gzeit">Gehen Uhrzeit *</label>
+        <input id="a_gzeit" type="text" class="uhrzeit" name="gehen_uhrzeit" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5" inputmode="numeric" required>
+    </div>
+    <div class="filter-item breit">
+        <label for="a_grund">Begründung *</label>
+        <input id="a_grund" type="text" name="begruendung" maxlength="255" required placeholder="z.B. Keyfob vergessen, laut Schichtplan">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Anlegen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+</details>
+{% endif %}
+
 <h2 class="abschnitt-titel">
     <span>Datensätze ({{ zeilen | length }})</span>
     <span class="zusatz">{{ von.strftime('%d.%m.%Y') }} – {{ bis.strftime('%d.%m.%Y') }}, Ortszeit, Dauer h:mm</span>

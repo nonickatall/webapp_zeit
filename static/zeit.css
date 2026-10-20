@@ -136,3 +136,11 @@ code { font-family: Consolas, monospace; }
 .uhr-fuss { display: flex; justify-content: flex-end; gap: 6px; padding-top: 6px; }
 .uhr-fuss button { border: none; border-radius: 3px; padding: 4px 12px; font-weight: bold; cursor: pointer; color: #fff; background: #6c757d; }
 .uhr-fuss button.uhr-ok { background: #28a745; }
+
+/* ---------------- Datensatz anlegen (aufklappbar) ---------------- */
+details.anlegen { margin: 0 0 10px; }
+details.anlegen > summary { cursor: pointer; display: inline-block; padding: 4px 12px; border-radius: 3px;
+    background: #28a745; color: #fff; font-weight: bold; font-size: 12px; list-style: none; margin-bottom: 6px; }
+details.anlegen > summary::-webkit-details-marker { display: none; }
+details.anlegen > summary .zusatz { font-weight: normal; opacity: .85; }
+details.anlegen[open] > summary { background: #6c757d; }

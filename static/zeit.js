@@ -126,6 +126,16 @@ Array.prototype.forEach.call(document.querySelectorAll('form.korrektur-form'), f
     var knopf = form.querySelector('button[type=submit]');
     var url = form.getAttribute('data-url');
     var letzte = null;
+    /* Gehen-Datum folgt dem Kommen-Datum, solange es noch auf dem bisherigen Kommen-Tag stand
+       (oder davor laege); ein bewusst anderer Tag (Nachtschicht) bleibt stehen. */
+    var kd = form.querySelector('[name=kommen_datum]'), gd = form.querySelector('[name=gehen_datum]');
+    if (kd && gd) {
+        var vorher = kd.value;
+        kd.addEventListener('change', function () {
+            if (!gd.value || gd.value === vorher || gd.value < kd.value) gd.value = kd.value;
+            vorher = kd.value;
+        });
+    }
 
     function zeige(text, art) { ausgabe.textContent = text; ausgabe.className = 'ergebnis ' + art; ausgabe.hidden = false; }
 
@@ -150,8 +160,16 @@ Array.prototype.forEach.call(document.querySelectorAll('form.korrektur-form'), f
                     if (a && a.ok) {
                         knopf.disabled = false; letzte = null; erneut.hidden = true;
                         if (a.ergebnis === 'ausgefuehrt') {
-                            zeige('Korrektur gespeichert – ' + a.uhrzeit + ' Uhr', 'ok');
-                            setTimeout(function () { window.location.reload(); }, 1500);
+                            if (form.hasAttribute('data-neu') && a.zeiterfassung_id) {
+                                /* Anlegen: zum neuen Datensatz */
+                                zeige('Datensatz Nr. ' + a.zeiterfassung_id + ' angelegt – ' + a.uhrzeit + ' Uhr', 'ok');
+                                setTimeout(function () {
+                                    window.location.href = '/zeit/datensatz/' + encodeURIComponent(a.zeiterfassung_id);
+                                }, 1500);
+                            } else {
+                                zeige('Korrektur gespeichert – ' + a.uhrzeit + ' Uhr', 'ok');
+                                setTimeout(function () { window.location.reload(); }, 1500);
+                            }
                         } else {
                             zeige('Nicht gespeichert: ' + (a.text || a.grund), 'fehler');
                         }

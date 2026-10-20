@@ -273,9 +273,24 @@ def _datensaetze_gefiltert(uid, von, bis, status):
 def datensaetze():
     uid, von, bis, status = _datensaetze_param()
     zeilen = _datensaetze_gefiltert(uid, von, bis, status)
+    darf_anlegen = db.hat_recht(g.mu["id"], RECHT_KORREKTUR)
     return render_template("datensaetze.html", zeilen=zeilen, uid=uid, von=von, bis=bis, status=status,
                            status_auswahl=[(k, v[0]) for k, v in STATUS_FILTER.items()],
-                           mitarbeiter=db.mitarbeiter(), seite="datensaetze", hilfe="Datensaetze")
+                           mitarbeiter=db.mitarbeiter(), darf_anlegen=darf_anlegen,
+                           alle_user=db.aktive_user() if darf_anlegen else [], heute=_heute(),
+                           seite="datensaetze", hilfe="Datensaetze")
+
+
+@app.route("/zeit/datensaetze/neu", methods=["POST"])
+def datensatz_neu():
+    """Auftrag "Datensatz manuell anlegen" (Plan 5.4 Fall 4) -- derselbe Befehl zef_korrektur
+    mit art=anlegen. Nur abgeschlossene Datensaetze (Kommen und Gehen)."""
+    d = _auftrag_anfrage()
+    try:
+        param_extra = {"user_id": int(d.get("user_id"))}
+    except (TypeError, ValueError):
+        return {"ok": False, "fehler": "Bitte einen Mitarbeiter wählen."}, 400
+    return _korrektur_senden(d, None, "anlegen", param_extra)
 
 
 @app.route("/zeit/datensaetze.csv")
@@ -413,40 +428,44 @@ def zeitregel_neu():
 
 @app.route("/zeit/datensatz/<int:ze_id>/korrektur", methods=["POST"])
 def korrektur_neu(ze_id):
-    """Auftrag "Korrektur" (Gehen nachtragen / Stempelzeit aendern) an die Engine. Die Webapp
-    schreibt nicht selbst; verbindlich prueft der Eingang das Recht, inhaltlich der zeiterfassung_server
-    (Status, Stand, Ueberschneidung, Zukunft, Tag)."""
+    """Auftrag "Korrektur" (Gehen nachtragen, Stempelzeit, Zeitregel zuordnen, Abzug/Zuschlag) an die
+    Engine. Die Webapp schreibt nicht selbst; verbindlich prueft der Eingang das Recht, inhaltlich der
+    zeiterfassung_server (Status, Stand, Ueberschneidung, Zukunft, Tag)."""
     d = _auftrag_anfrage()
+    art = str(d.get("art") or "")
+    if art not in ("gehen_nachtragen", "stempelzeit", "abzug", "zeitregel"):
+        return {"ok": False, "fehler": "Ungültige Korrekturart."}, 400
+    param = {"stand": {"kommen": str(d.get("stand_kommen") or ""), "gehen": str(d.get("stand_gehen") or ""),
+                       "status": str(d.get("stand_status") or "")}}
+    if art == "abzug":
+        try:
+            param["korrektur_minuten"] = int(d.get("korrektur_minuten"))
+        except (TypeError, ValueError):
+            return {"ok": False, "fehler": "Bitte die Minuten als ganze Zahl angeben (z.B. -90)."}, 400
+    elif art == "zeitregel":
+        try:
+            param["zeitregel_id"] = int(d.get("zeitregel_id"))
+        except (TypeError, ValueError):
+            return {"ok": False, "fehler": "Bitte eine Zeitregel wählen."}, 400
+    return _korrektur_senden(d, ze_id, art, param)
+
+
+def _korrektur_senden(d, ze_id, art, param):
+    """Gemeinsamer Teil aller zef_korrektur-Auftraege: Recht, anfrage_id, Zeiten, Begruendung, Versand."""
     if not db.hat_recht(g.mu["id"], RECHT_KORREKTUR):
         _log_db(g.mu["name"], "korrektur", f"abgewiesen:kein_recht {RECHT_KORREKTUR}")
         return {"ok": False, "fehler": "Kein Recht für Korrekturen."}, 403
     anfrage_id = str(d.get("anfrage_id") or "").lower() or str(uuid.uuid4())
     if not ANFRAGE_ID_RE.match(anfrage_id):
         return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
-    art = str(d.get("art") or "")
-    if art not in ("gehen_nachtragen", "stempelzeit", "abzug", "zeitregel"):
-        return {"ok": False, "fehler": "Ungültige Korrekturart."}, 400
-    param = {
-        "zeiterfassung_id": ze_id, "art": art,
-        "stand": {"kommen": str(d.get("stand_kommen") or ""), "gehen": str(d.get("stand_gehen") or ""),
-                  "status": str(d.get("stand_status") or "")},
-        "begruendung": str(d.get("begruendung") or "").strip()[:255],
-    }
-    if art in ("gehen_nachtragen", "stempelzeit"):
-        param["kommen"] = str(d.get("kommen") or "") if art == "stempelzeit" else ""
+    param = dict(param, art=art, begruendung=str(d.get("begruendung") or "").strip()[:255])
+    if ze_id is not None:
+        param["zeiterfassung_id"] = ze_id
+    if art in ("gehen_nachtragen", "stempelzeit", "anlegen"):
+        param["kommen"] = str(d.get("kommen") or "") if art != "gehen_nachtragen" else ""
         param["gehen"] = str(d.get("gehen") or "")
-        if not param["gehen"] or (art == "stempelzeit" and not param["kommen"]):
+        if not param["gehen"] or (art != "gehen_nachtragen" and not param["kommen"]):
             return {"ok": False, "fehler": "Bitte die Zeiten ausfüllen."}, 400
-    elif art == "abzug":
-        try:
-            param["korrektur_minuten"] = int(d.get("korrektur_minuten"))
-        except (TypeError, ValueError):
-            return {"ok": False, "fehler": "Bitte die Minuten als ganze Zahl angeben (z.B. -90)."}, 400
-    else:
-        try:
-            param["zeitregel_id"] = int(d.get("zeitregel_id"))
-        except (TypeError, ValueError):
-            return {"ok": False, "fehler": "Bitte eine Zeitregel wählen."}, 400
     if len(param["begruendung"]) < 3:
         return {"ok": False, "fehler": "Bitte eine Begründung angeben (mindestens 3 Zeichen)."}, 400
     nummer = (g.mu.get("nummer") or "").strip()
@@ -455,10 +474,11 @@ def korrektur_neu(ze_id):
     try:
         zeit_mqtt.senden(cfg, RECHT_KORREKTUR, nummer, anfrage_id, zeit_mqtt.param_kodieren(param))
     except Exception as e:
-        log.error(f"korrektur_neu: Versand fehlgeschlagen: {e}")
+        log.error(f"korrektur: Versand fehlgeschlagen: {e}")
         return {"ok": False, "fehler": "Der Auftrag konnte nicht gesendet werden."}, 503
-    _log_db(g.mu["name"], "korrektur", f"auftrag gesendet fuer zeiterfassung {ze_id} ({art})")
-    log.info(f"korrektur_neu: {g.mu['name']} -> zeiterfassung {ze_id} {art}, anfrage_id={anfrage_id}")
+    ziel = f"zeiterfassung {ze_id}" if ze_id is not None else f"user {param.get('user_id')}"
+    _log_db(g.mu["name"], "korrektur", f"auftrag gesendet fuer {ziel} ({art})")
+    log.info(f"korrektur: {g.mu['name']} -> {ziel} {art}, anfrage_id={anfrage_id}")
     return {"ok": True, "anfrage_id": anfrage_id}
 
 
