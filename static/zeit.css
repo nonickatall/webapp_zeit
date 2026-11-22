@@ -84,6 +84,8 @@ a { color: #2f5f96; }
 /* ---------------- Markierungen, Hinweise ---------------- */
 .marke { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 16px; margin-left: 4px; color: #fff; }
 .marke.rot { background: #c62828; } .marke.gelb { background: #b26a00; } .marke.blau { background: #1565c0; }
+.marke.gruen { background: #2e7d32; } .marke.grau { background: #757575; }
+tr.abgeloest td { color: #888; }
 .leer { color: #666; padding: 6px 2px; }
 .fuss { color: #666; font-size: 11px; margin-top: 6px; }
 code { font-family: Consolas, monospace; }

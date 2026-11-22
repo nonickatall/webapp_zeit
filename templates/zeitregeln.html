@@ -3,6 +3,12 @@
 {% block inhalt %}
 <form method="get" action="{{ url_for('zeitregeln') }}" class="filter-zeile">
     {% include "_filter_mitarbeiter.html" %}
+    <div class="filter-item">
+        <label for="f_anzeige">Anzeigen</label>
+        <select id="f_anzeige" name="anzeige">
+            {% for wert, text in anzeige_optionen.items() %}<option value="{{ wert }}" {{ 'selected' if anzeige == wert }}>{{ text }}</option>{% endfor %}
+        </select>
+    </div>
     <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
     <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('zeitregeln') }}">✗ Filter</a></div>
 </form>
@@ -50,7 +56,8 @@
 <div class="table-wrap"><table>
 <thead><tr><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th>{% if darf_anlegen %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for z in regeln %}
-<tr><td>{{ z.name or ('? (' ~ z.user_id ~ ')') }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}</td>
+<tr class="{{ 'abgeloest' if z.stand == 'abgeloest' }}"><td>{{ z.name or ('? (' ~ z.user_id ~ ')') }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}
+    {% if z.stand == 'gueltig' %}<span class="marke gruen">gültig</span>{% elif z.stand == 'kuenftig' %}<span class="marke blau">künftig</span>{% else %}<span class="marke grau">abgelöst</span>{% endif %}</td>
 <td>{{ z.sollbeginn_hhmm or '–' }}</td><td class="zahl">{{ z.pause_minuten }} min</td><td class="zahl">{{ z.pause_ab_minuten }} min</td>
 <td>{{ z.ersteller or ('? (' ~ z.erstellt_von ~ ')') }}</td><td>{{ z.erstellt_am | zeit }}</td><td>{{ z.id }}</td>
 {% if darf_anlegen %}<td><button type="button" class="btn-kopieren" title="Werte in „Neue Zeitregel“ übernehmen"

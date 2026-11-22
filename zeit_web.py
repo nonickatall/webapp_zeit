@@ -375,13 +375,40 @@ def offen():
                            mitarbeiter=db.mitarbeiter(), seite="offen", hilfe="Offen")
 
 
+ZEITREGEL_ANZEIGE = {"": "alle", "gueltig": "heute gültige", "aktuell": "gültige und künftige"}
+
+
+def _regel_stand(regeln, heute):
+    """Je Regel r["stand"]: 'gueltig' (je Mitarbeiter die mit dem groessten gueltig_ab <= heute),
+    'kuenftig' (gueltig_ab nach heute) oder 'abgeloest'."""
+    aktuell = {}
+    for r in regeln:
+        a = aktuell.get(r["user_id"])
+        if r["gueltig_ab"] <= heute and (a is None or r["gueltig_ab"] > a["gueltig_ab"]):
+            aktuell[r["user_id"]] = r
+    for r in regeln:
+        r["stand"] = ("kuenftig" if r["gueltig_ab"] > heute
+                      else "gueltig" if aktuell.get(r["user_id"]) is r else "abgeloest")
+
+
 @app.route("/zeit/zeitregeln")
 def zeitregeln():
     uid = _int("user")
+    anzeige = request.args.get("anzeige", "")
+    if anzeige not in ZEITREGEL_ANZEIGE:
+        anzeige = ""
+    heute = _heute()
+    regeln = db.zeitregeln(uid)
+    _regel_stand(regeln, heute)
+    if anzeige == "gueltig":
+        regeln = [r for r in regeln if r["stand"] == "gueltig"]
+    elif anzeige == "aktuell":
+        regeln = [r for r in regeln if r["stand"] != "abgeloest"]
     darf = db.hat_recht(g.mu["id"], RECHT_ZEITREGEL)
-    return render_template("zeitregeln.html", regeln=db.zeitregeln(uid), uid=uid,
+    return render_template("zeitregeln.html", regeln=regeln, uid=uid, anzeige=anzeige,
+                           anzeige_optionen=ZEITREGEL_ANZEIGE,
                            mitarbeiter=db.mitarbeiter(), darf_anlegen=darf,
-                           alle_user=db.aktive_user() if darf else [], heute=_heute(),
+                           alle_user=db.aktive_user() if darf else [], heute=heute,
                            seite="zeitregeln", hilfe="Zeitregeln")
 
 
