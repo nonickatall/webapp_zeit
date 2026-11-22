@@ -1,7 +1,7 @@
 {# eine Zeile Zeitdatensatz; Markierungen: korrigiert, automatisch_beendet, ohne Zeitregel, offen, klaeren (mit Notiz) #}
 <tr class="{{ 'warnung' if r.status != 'abgeschlossen' or r.pause_minuten is none }}">
     {% if mit_name %}<td>{{ r.name or ('? (' ~ r.user_id ~ ')') }}</td>{% endif %}
-    <td>{{ r.kommen | zeit }}</td>
+    <td>{{ r.kommen | zeit }}{% if r.zaehlt_ab %} <span class="notiz" title="Sollbeginn der Zeitregel">zählt ab {{ r.zaehlt_ab | zeit("%H:%M") }}</span>{% endif %}</td>
     <td>{{ r.gehen | zeit }}</td>
     <td class="zahl">{{ r.minuten | dauer }}</td>
     <td class="zahl">{{ r.pause_minuten | dauer }}</td>

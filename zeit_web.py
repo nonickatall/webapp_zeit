@@ -299,9 +299,10 @@ def datensatz_neu():
 def datensaetze_csv():
     uid, von, bis, status = _datensaetze_param()
     zeilen = _datensaetze_gefiltert(uid, von, bis, status)
-    kopf = ["ID", "Mitarbeiter", "Kommen", "Gehen", "Brutto", "Pause", "Korrektur", "Netto", "Status",
+    kopf = ["ID", "Mitarbeiter", "Kommen", "Zählt ab", "Gehen", "Brutto", "Pause", "Korrektur", "Netto", "Status",
             "Korrigiert", "Manuell", "Terminal Kommen", "Terminal Gehen"]
-    daten = [[r["id"], r["name"], f_zeit(r["kommen"]), f_zeit(r["gehen"]), f_dauer(r["minuten"]),
+    daten = [[r["id"], r["name"], f_zeit(r["kommen"]), f_zeit(r["zaehlt_ab"]) if r["zaehlt_ab"] else "",
+              f_zeit(r["gehen"]), f_dauer(r["minuten"]),
               f_dauer(r["pause_minuten"]), f_dauer(r.get("korrektur_minuten")), f_dauer(r.get("netto_minuten")),
               r["status"], "ja" if r["korrigiert"] else "nein", "ja" if r["manuell"] else "nein",
               r["terminal_kommen"] or "", r["terminal_gehen"] or ""] for r in zeilen]

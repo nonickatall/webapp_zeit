@@ -53,8 +53,41 @@
     var erneut = document.getElementById('zeitregel-erneut');
     var knopf = form.querySelector('button[type=submit]');
     var letzte = null;
+    var VORLAGE = 'zeitregel_vorlage';
+    var FELDER = ['gueltig_ab', 'pause_minuten', 'pause_ab_minuten', 'sollbeginn', 'begruendung'];
 
     function zeige(text, art) { ausgabe.textContent = text; ausgabe.className = 'ergebnis ' + art; ausgabe.hidden = false; }
+
+    /* Nach dem Anlegen laedt die Seite neu: die Werte (ohne Mitarbeiter) bleiben fuer den naechsten stehen */
+    function vorlageMerken(d, meldung) {
+        var v = { meldung: meldung };
+        FELDER.forEach(function (k) { v[k] = d[k] || ''; });
+        try { sessionStorage.setItem(VORLAGE, JSON.stringify(v)); } catch (e) { /* ohne Speicher: leeres Formular */ }
+    }
+    (function vorlageLaden() {
+        var v = null;
+        try { v = JSON.parse(sessionStorage.getItem(VORLAGE) || 'null'); sessionStorage.removeItem(VORLAGE); } catch (e) { v = null; }
+        if (!v) return;
+        FELDER.forEach(function (k) { if (v[k] !== undefined && form.elements[k]) form.elements[k].value = v[k]; });
+        form.elements.user_id.value = '';
+        zeige((v.meldung ? v.meldung + '. ' : '') + 'Werte bleiben stehen – nächsten Mitarbeiter wählen und „Anlegen“.', 'ok');
+        form.elements.user_id.focus();
+    })();
+
+    /* "Kopieren" in der Liste: Werte einer Regel als Vorlage ins Formular, gueltig ab = heute */
+    Array.prototype.forEach.call(document.querySelectorAll('button.btn-kopieren'), function (b) {
+        b.addEventListener('click', function () {
+            form.elements.user_id.value = b.dataset.user || '';
+            form.elements.gueltig_ab.value = form.elements.gueltig_ab.defaultValue;
+            form.elements.pause_minuten.value = b.dataset.pause;
+            form.elements.pause_ab_minuten.value = b.dataset.pauseAb;
+            form.elements.sollbeginn.value = b.dataset.soll || '';
+            letzte = null; erneut.hidden = true;
+            zeige('Vorlage übernommen – Mitarbeiter, Werte und Begründung prüfen, dann „Anlegen“.', 'warten');
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            (form.elements.begruendung.value ? form.elements.user_id : form.elements.begruendung).focus();
+        });
+    });
 
     function daten() {
         var f = new FormData(form), d = {};
@@ -72,7 +105,9 @@
                     if (a && a.ok) {
                         knopf.disabled = false;
                         if (a.ergebnis === 'ausgefuehrt') {
-                            zeige('Zeitregel angelegt – ' + a.uhrzeit + ' Uhr – Nr. ' + a.zeitregel_id, 'ok');
+                            var meldung = 'Zeitregel angelegt – ' + a.uhrzeit + ' Uhr – Nr. ' + a.zeitregel_id;
+                            zeige(meldung, 'ok');
+                            if (letzte) vorlageMerken(letzte, meldung);
                             letzte = null; erneut.hidden = true;
                             setTimeout(function () { window.location.reload(); }, 1500);
                         } else {

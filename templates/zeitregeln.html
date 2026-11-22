@@ -48,13 +48,16 @@
 <p class="leer">Keine Zeitregeln.</p>
 {% else %}
 <div class="table-wrap"><table>
-<thead><tr><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th></tr></thead>
+<thead><tr><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th>{% if darf_anlegen %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for z in regeln %}
 <tr><td>{{ z.name or ('? (' ~ z.user_id ~ ')') }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}</td>
-<td>{{ z.sollbeginn or '–' }}</td><td class="zahl">{{ z.pause_minuten }} min</td><td class="zahl">{{ z.pause_ab_minuten }} min</td>
-<td>{{ z.ersteller or ('? (' ~ z.erstellt_von ~ ')') }}</td><td>{{ z.erstellt_am | zeit }}</td><td>{{ z.id }}</td></tr>
+<td>{{ z.sollbeginn_hhmm or '–' }}</td><td class="zahl">{{ z.pause_minuten }} min</td><td class="zahl">{{ z.pause_ab_minuten }} min</td>
+<td>{{ z.ersteller or ('? (' ~ z.erstellt_von ~ ')') }}</td><td>{{ z.erstellt_am | zeit }}</td><td>{{ z.id }}</td>
+{% if darf_anlegen %}<td><button type="button" class="btn-kopieren" title="Werte in „Neue Zeitregel“ übernehmen"
+    data-user="{{ z.user_id }}" data-pause="{{ z.pause_minuten }}" data-pause-ab="{{ z.pause_ab_minuten }}"
+    data-soll="{{ z.sollbeginn_hhmm or '' }}">Kopieren</button></td>{% endif %}</tr>
 {% endfor %}</tbody>
 </table></div>
 {% endif %}
-<p class="fuss">Je Mitarbeiter gilt die Regel mit dem größten „gültig ab“, das nicht nach dem Tag liegt. Regeln werden nie geändert, nur neu angelegt.</p>
+<p class="fuss">Je Mitarbeiter gilt die Regel mit dem größten „gültig ab“, das nicht nach dem Tag liegt. Regeln werden nie geändert, nur neu angelegt.{% if darf_anlegen %} „Kopieren“ übernimmt eine Regel als Vorlage in „Neue Zeitregel“; nach dem Anlegen bleiben die Werte für den nächsten Mitarbeiter stehen.{% endif %}</p>
 {% endblock %}

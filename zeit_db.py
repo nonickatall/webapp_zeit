@@ -189,7 +189,7 @@ class ZeitDB:
         heute = ortszeit(jetzt).date()
         beginn, ende = tag_grenzen_utc(heute)
         offen = self.abfrage(
-            f"SELECT ze.id, ze.user_id, ze.kommen, u.`user` AS name, bk.terminal "
+            f"SELECT ze.id, ze.user_id, ze.kommen, ze.zaehlt_ab, u.`user` AS name, bk.terminal "
             f"FROM {self.z}.zeiterfassung ze "
             f"LEFT JOIN {self.z}.zeiterfassung_buchung bk ON bk.id = ze.buchung_kommen_id "
             f"LEFT JOIN {self.m}.`user` u ON u.id = ze.user_id "
@@ -201,8 +201,10 @@ class ZeitDB:
         for r in heute_zeilen:
             summe[r["user_id"]] = summe.get(r["user_id"], 0) + int(r["minuten"] or 0)
         for r in offen:
-            r["laufend_min"] = minuten_zwischen(r["kommen"], jetzt)
-            r["heute_min"] = summe.get(r["user_id"], 0) + minuten_zwischen(max(r["kommen"], beginn), jetzt)
+            # angerechnet: vor dem Sollbeginn der Zeitregel (zaehlt_ab) zaehlt nichts
+            start = r["zaehlt_ab"] or r["kommen"]
+            r["laufend_min"] = minuten_zwischen(start, jetzt)
+            r["heute_min"] = summe.get(r["user_id"], 0) + minuten_zwischen(max(start, beginn), jetzt)
             r["vor_heute"] = r["kommen"] < beginn
         return {"jetzt": jetzt, "heute": heute, "offen": offen}
 
@@ -225,7 +227,8 @@ class ZeitDB:
     def datensatz(self, ze_id):
         ze = self.eins(
             f"SELECT ze.*, u.`user` AS name, (ze.buchung_kommen_id IS NULL) AS manuell, "
-            f"zr.pause_minuten AS regel_pause, zr.pause_ab_minuten AS regel_pause_ab, zr.gueltig_ab AS regel_ab "
+            f"zr.pause_minuten AS regel_pause, zr.pause_ab_minuten AS regel_pause_ab, zr.gueltig_ab AS regel_ab, "
+            f"TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS regel_soll "
             f"FROM {self.z}.zeiterfassung ze "
             f"LEFT JOIN {self.m}.`user` u ON u.id = ze.user_id "
             f"LEFT JOIN {self.z}.user_zeitregel zr ON zr.id = ze.zeitregel_id "
@@ -265,7 +268,8 @@ class ZeitDB:
 
     # ---------------- 5. Zeitregeln
     def zeitregeln(self, uid):
-        sql = (f"SELECT zr.*, u.`user` AS name, e.`user` AS ersteller FROM {self.z}.user_zeitregel zr "
+        sql = (f"SELECT zr.*, TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS sollbeginn_hhmm, "
+               f"u.`user` AS name, e.`user` AS ersteller FROM {self.z}.user_zeitregel zr "
                f"LEFT JOIN {self.m}.`user` u ON u.id = zr.user_id "
                f"LEFT JOIN {self.m}.`user` e ON e.id = zr.erstellt_von ")
         if uid:
