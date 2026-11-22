@@ -19,7 +19,7 @@
 <tbody>
 {% for r in a.offen %}
 <tr class="{{ 'warnung' if r.vor_heute }}">
-    <td>{{ r.name or ('? (' ~ r.user_id ~ ')') }}</td>
+    <td>{{ r.name | mitarbeiter(r.user_id) }}</td>
     <td>{{ r.kommen | zeit }}{% if r.vor_heute %} <span class="marke rot">vor heute</span>{% endif %}</td>
     <td class="zahl">{{ r.laufend_min | dauer }}</td>
     <td class="zahl">{{ r.heute_min | dauer }}</td>

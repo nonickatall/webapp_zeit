@@ -64,6 +64,14 @@ def f_zeit(utc, fmt="%d.%m.%Y %H:%M"):
     return o.strftime(fmt) if o else "–"
 
 
+@app.template_filter("mitarbeiter")
+def f_mitarbeiter(name, uid):
+    """Mitarbeiter mit myhome-User-ID, z.B. 'Herr Peter Mueller (78)' -- erleichtert die Zuordnung."""
+    if not name or isinstance(name, Undefined):
+        name = "?"
+    return f"{name} ({uid})" if uid is not None and not isinstance(uid, Undefined) else name
+
+
 @app.template_filter("dauer")
 def f_dauer(minuten):
     # None oder fehlende Spalte (z.B. korrektur_minuten vor Stufe B) -> "–"
@@ -299,9 +307,9 @@ def datensatz_neu():
 def datensaetze_csv():
     uid, von, bis, status = _datensaetze_param()
     zeilen = _datensaetze_gefiltert(uid, von, bis, status)
-    kopf = ["ID", "Mitarbeiter", "Kommen", "Zählt ab", "Gehen", "Brutto", "Pause", "Korrektur", "Netto", "Status",
-            "Korrigiert", "Manuell", "Terminal Kommen", "Terminal Gehen"]
-    daten = [[r["id"], r["name"], f_zeit(r["kommen"]), f_zeit(r["zaehlt_ab"]) if r["zaehlt_ab"] else "",
+    kopf = ["ID", "Mitarbeiter-ID", "Mitarbeiter", "Kommen", "Zählt ab", "Gehen", "Brutto", "Pause", "Korrektur",
+            "Netto", "Status", "Korrigiert", "Manuell", "Terminal Kommen", "Terminal Gehen"]
+    daten = [[r["id"], r["user_id"], r["name"], f_zeit(r["kommen"]), f_zeit(r["zaehlt_ab"]) if r["zaehlt_ab"] else "",
               f_zeit(r["gehen"]), f_dauer(r["minuten"]),
               f_dauer(r["pause_minuten"]), f_dauer(r.get("korrektur_minuten")), f_dauer(r.get("netto_minuten")),
               r["status"], "ja" if r["korrigiert"] else "nein", "ja" if r["manuell"] else "nein",
@@ -612,9 +620,9 @@ def summen():
 def summen_csv():
     j, m = _monat()
     zeilen, von, bis = db.summen(j, m)
-    kopf = ["Mitarbeiter", "Tage", "Datensaetze", "Brutto", "Pause", "Netto", "Netto vollstaendig",
+    kopf = ["Mitarbeiter-ID", "Mitarbeiter", "Tage", "Datensaetze", "Brutto", "Pause", "Netto", "Netto vollstaendig",
             "Offen", "Ohne Zeitregel", "Automatisch beendet"]
-    daten = [[s["name"], s["tage"], s["datensaetze"], f_dauer(s["brutto"]), f_dauer(s["pause"]),
+    daten = [[s["user_id"], s["name"], s["tage"], s["datensaetze"], f_dauer(s["brutto"]), f_dauer(s["pause"]),
               f_dauer(s["netto"]), "ja" if s["netto_vollstaendig"] else "nein",
               s["offen"], s["ohne_regel"], s["auto"]] for s in zeilen]
     return _csv(f"zeiterfassung_summen_{j:04d}-{m:02d}.csv", kopf, daten)

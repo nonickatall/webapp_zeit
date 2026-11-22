@@ -4,7 +4,7 @@
     <select id="f_user" name="user">
         <option value="">Alle</option>
         {% for m in mitarbeiter %}
-        <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}{% if not m.status %} (inaktiv){% endif %}</option>
+        <option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name | mitarbeiter(m.id) }}{% if not m.status %} (inaktiv){% endif %}</option>
         {% endfor %}
     </select>
 </div>

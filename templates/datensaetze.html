@@ -35,7 +35,7 @@
         <label for="a_user">Mitarbeiter *</label>
         <select id="a_user" name="user_id" required>
             <option value="">– bitte wählen –</option>
-            {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name }}</option>{% endfor %}
+            {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name | mitarbeiter(m.id) }}</option>{% endfor %}
         </select>
     </div>
     <div class="filter-item">

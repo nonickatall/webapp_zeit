@@ -228,10 +228,12 @@ class ZeitDB:
         ze = self.eins(
             f"SELECT ze.*, u.`user` AS name, (ze.buchung_kommen_id IS NULL) AS manuell, "
             f"zr.pause_minuten AS regel_pause, zr.pause_ab_minuten AS regel_pause_ab, zr.gueltig_ab AS regel_ab, "
-            f"TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS regel_soll "
+            f"TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS regel_soll, ra.begruendung AS regel_begruendung "
             f"FROM {self.z}.zeiterfassung ze "
             f"LEFT JOIN {self.m}.`user` u ON u.id = ze.user_id "
             f"LEFT JOIN {self.z}.user_zeitregel zr ON zr.id = ze.zeitregel_id "
+            f"LEFT JOIN {self.z}.zeiterfassung_auftrag ra ON ra.zeitregel_id = zr.id AND ra.art = 'zeitregel' "
+            f"AND ra.ergebnis = 'ausgefuehrt' "
             f"WHERE ze.id = %s", (ze_id,))
         if ze is None:
             return None
@@ -268,10 +270,13 @@ class ZeitDB:
 
     # ---------------- 5. Zeitregeln
     def zeitregeln(self, uid):
+        # Begruendung steht nicht an der Regel, sondern am Auftrag, der sie angelegt hat
         sql = (f"SELECT zr.*, TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS sollbeginn_hhmm, "
-               f"u.`user` AS name, e.`user` AS ersteller FROM {self.z}.user_zeitregel zr "
+               f"u.`user` AS name, e.`user` AS ersteller, a.begruendung FROM {self.z}.user_zeitregel zr "
                f"LEFT JOIN {self.m}.`user` u ON u.id = zr.user_id "
-               f"LEFT JOIN {self.m}.`user` e ON e.id = zr.erstellt_von ")
+               f"LEFT JOIN {self.m}.`user` e ON e.id = zr.erstellt_von "
+               f"LEFT JOIN {self.z}.zeiterfassung_auftrag a ON a.zeitregel_id = zr.id AND a.art = 'zeitregel' "
+               f"AND a.ergebnis = 'ausgefuehrt' ")
         if uid:
             return self.abfrage(sql + "WHERE zr.user_id = %s ORDER BY zr.gueltig_ab DESC", (uid,))
         return self.abfrage(sql + "ORDER BY u.`user`, zr.gueltig_ab DESC")

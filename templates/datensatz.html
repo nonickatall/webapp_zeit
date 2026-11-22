@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block titel %}Datensatz {{ d.ze.id }} – {{ d.ze.name or ('? (' ~ d.ze.user_id ~ ')') }}{% endblock %}
+{% block titel %}Datensatz {{ d.ze.id }} – {{ d.ze.name | mitarbeiter(d.ze.user_id) }}{% endblock %}
 {% block inhalt %}
 {% set ze = d.ze %}
 <a class="btn-zurueck" href="{{ zurueck }}">← Zurück</a>
@@ -10,7 +10,7 @@
 <tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}{% if ze.klaeren %} <span class="marke gelb">klären</span>{% endif %}</td></tr>
 <tr><th>Brutto</th><td>{{ ze.minuten | dauer }}</td></tr>
 <tr><th>Pause</th><td>{{ ze.pause_minuten | dauer }}
-    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min{% if ze.regel_soll %}, Sollbeginn {{ ze.regel_soll }}{% endif %}, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
+    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min{% if ze.regel_soll %}, Sollbeginn {{ ze.regel_soll }}{% endif %}, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}{% if ze.regel_begruendung %}, Begründung: {{ ze.regel_begruendung }}{% endif %}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
 <tr><th>Korrektur</th><td>{{ ze.korrektur_minuten | dauer }}</td></tr>
 <tr><th>Netto</th><td>{{ ze.netto_minuten | dauer }}</td></tr>
 <tr><th>Manuell angelegt</th><td>{{ 'ja' if ze.manuell else 'nein' }}</td></tr>
