@@ -54,9 +54,9 @@
 <p class="leer">Keine Zeitregeln.</p>
 {% else %}
 <div class="table-wrap"><table>
-<thead><tr><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Begründung</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th>{% if darf_anlegen %}<th></th>{% endif %}</tr></thead>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>gültig ab</th><th>Sollbeginn</th><th>Pause</th><th>Pause ab</th><th>Begründung</th><th>Erstellt von</th><th>Erstellt am</th><th>Nr.</th>{% if darf_anlegen %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for z in regeln %}
-<tr class="{{ 'abgeloest' if z.stand == 'abgeloest' }}"><td>{{ z.name | mitarbeiter(z.user_id) }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}
+<tr class="{{ 'abgeloest' if z.stand == 'abgeloest' }}"><td class="zahl">{{ z.user_id }}</td><td>{{ z.name or '?' }}</td><td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}
     {% if z.stand == 'gueltig' %}<span class="marke gruen">gültig</span>{% elif z.stand == 'kuenftig' %}<span class="marke blau">künftig</span>{% else %}<span class="marke grau">abgelöst</span>{% endif %}</td>
 <td>{{ z.sollbeginn_hhmm or '–' }}</td><td class="zahl">{{ z.pause_minuten }} min</td><td class="zahl">{{ z.pause_ab_minuten }} min</td>
 <td>{{ z.begruendung or '–' }}</td><td>{{ z.ersteller or ('? (' ~ z.erstellt_von ~ ')') }}</td><td>{{ z.erstellt_am | zeit }}</td><td>{{ z.id }}</td>

@@ -15,11 +15,11 @@
 <p class="leer">Niemand angemeldet.</p>
 {% else %}
 <div class="table-wrap"><table>
-<thead><tr><th>Mitarbeiter</th><th>Seit</th><th>Laufend</th><th>Heute</th><th>Terminal</th><th>Nr.</th></tr></thead>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>Seit</th><th>Laufend</th><th>Heute</th><th>Terminal</th><th>Nr.</th></tr></thead>
 <tbody>
 {% for r in a.offen %}
 <tr class="{{ 'warnung' if r.vor_heute }}">
-    <td>{{ r.name | mitarbeiter(r.user_id) }}</td>
+    <td class="zahl">{{ r.user_id }}</td><td>{{ r.name or '?' }}</td>
     <td>{{ r.kommen | zeit }}{% if r.vor_heute %} <span class="marke rot">vor heute</span>{% endif %}</td>
     <td class="zahl">{{ r.laufend_min | dauer }}</td>
     <td class="zahl">{{ r.heute_min | dauer }}</td>

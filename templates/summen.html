@@ -19,11 +19,11 @@
 <p class="leer">Keine Datensätze in diesem Monat.</p>
 {% else %}
 <div class="table-wrap"><table>
-<thead><tr><th>Mitarbeiter</th><th>Tage</th><th>Datensätze</th><th>Brutto</th><th>Pause</th><th>Netto</th>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>Tage</th><th>Datensätze</th><th>Brutto</th><th>Pause</th><th>Netto</th>
 <th>Offen</th><th>Ohne Zeitregel</th><th>Autom. beendet</th></tr></thead>
 <tbody>{% for s in zeilen %}
 <tr class="{{ 'warnung' if not s.netto_vollstaendig }}">
-<td><a href="{{ url_for('datensaetze', user=s.user_id, von=von.isoformat(), bis=bis.isoformat()) }}">{{ s.name | mitarbeiter(s.user_id) }}</a></td>
+<td class="zahl">{{ s.user_id }}</td><td><a href="{{ url_for('datensaetze', user=s.user_id, von=von.isoformat(), bis=bis.isoformat()) }}">{{ s.name or '?' }}</a></td>
 <td class="zahl">{{ s.tage }}</td><td class="zahl">{{ s.datensaetze }}</td>
 <td class="zahl">{{ s.brutto | dauer }}</td><td class="zahl">{{ s.pause | dauer }}</td>
 <td class="zahl">{{ s.netto | dauer }}{% if not s.netto_vollstaendig %} <span class="marke rot">unvollständig</span>{% endif %}</td>
