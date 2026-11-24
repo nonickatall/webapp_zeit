@@ -128,7 +128,11 @@ class AuthDB:
 
     def aktiv_setzen(self, benutzername, aktiv):
         with self._conn() as c:
-            cur = c.execute("UPDATE benutzer SET aktiv=? WHERE benutzername=?", (1 if aktiv else 0, benutzername))
+            if aktiv:   # entsperren hebt auch die Sperre nach Fehlversuchen auf
+                cur = c.execute("UPDATE benutzer SET aktiv=1, fehlversuche=0, gesperrt_bis=0 WHERE benutzername=?",
+                                (benutzername,))
+            else:
+                cur = c.execute("UPDATE benutzer SET aktiv=0 WHERE benutzername=?", (benutzername,))
             if not aktiv:
                 c.execute("DELETE FROM sitzung WHERE benutzer_id=(SELECT id FROM benutzer WHERE benutzername=?)",
                           (benutzername,))

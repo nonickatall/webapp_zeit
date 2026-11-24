@@ -395,3 +395,38 @@ Array.prototype.forEach.call(document.querySelectorAll('form.filter-zeile:not(.f
         });
     });
 });
+
+/* Passwortfelder: Auge-Symbol zum Anzeigen/Verbergen der Eingabe. */
+(function () {
+    var AUGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+        '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var ZU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+        '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>' +
+        '<line x1="3" y1="3" x2="21" y2="21"/></svg>';
+    var felder = document.querySelectorAll('input[type="password"]');
+    Array.prototype.forEach.call(felder, function (feld) {
+        var huelle = document.createElement('span');
+        huelle.className = 'pw-feld';
+        feld.parentNode.insertBefore(huelle, feld);
+        huelle.appendChild(feld);
+        var knopf = document.createElement('button');
+        knopf.type = 'button';
+        knopf.className = 'pw-auge';
+        function setzen(sichtbar) {
+            feld.type = sichtbar ? 'text' : 'password';
+            knopf.innerHTML = sichtbar ? ZU : AUGE;
+            knopf.title = sichtbar ? 'Passwort verbergen' : 'Passwort anzeigen';
+            knopf.setAttribute('aria-label', knopf.title);
+            knopf.setAttribute('aria-pressed', sichtbar ? 'true' : 'false');
+        }
+        setzen(false);
+        knopf.addEventListener('click', function (e) {
+            e.preventDefault();
+            setzen(feld.type === 'password');
+            feld.focus();
+        });
+        // Vor dem Absenden wieder verbergen (Browser speichert sonst ggf. als Text)
+        if (feld.form) feld.form.addEventListener('submit', function () { feld.type = 'password'; });
+        huelle.appendChild(knopf);
+    });
+})();

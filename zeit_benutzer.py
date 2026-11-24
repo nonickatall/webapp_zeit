@@ -4,7 +4,7 @@
     ... liste
     ... link <benutzername>          neuer Einmal-Link (Passwort vergessen), beendet Sitzungen
     ... sperren <benutzername>       Zugang deaktivieren, beendet Sitzungen
-    ... entsperren <benutzername>
+    ... entsperren <benutzername>    Zugang aktivieren und Sperre nach Fehlversuchen aufheben
 
 Der Einmal-Link gilt 24 h und setzt das Passwort. Eine Benutzerverwaltung in der
 Webapp gibt es bewusst nicht. Anlegen nur fuer einen aktiven myhome.user (id <> 0),

@@ -98,6 +98,11 @@ code { font-family: Consolas, monospace; }
 .kasten input { height: 28px; padding: 0 8px; border: 1px solid #ced4da; border-radius: 3px; font-size: 13px; }
 .kasten button { height: 30px; border: none; border-radius: 3px; background: #28a745; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
 .kasten button:hover { background: #218838; }
+.pw-feld { position: relative; display: flex; }
+.pw-feld input { flex: 1; padding-right: 34px; }
+.kasten button.pw-auge { position: absolute; right: 1px; top: 1px; width: 32px; height: 26px; padding: 0; background: transparent; color: #666; display: flex; align-items: center; justify-content: center; }
+.kasten button.pw-auge:hover { background: transparent; color: #000; }
+.kasten button.pw-auge svg { width: 18px; height: 18px; }
 .fehler { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 6px 10px; border-radius: 3px; }
 .hinweis { color: #155724; background: #d4edda; border: 1px solid #c3e6cb; padding: 6px 10px; border-radius: 3px; }
 
