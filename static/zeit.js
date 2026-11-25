@@ -430,3 +430,40 @@ Array.prototype.forEach.call(document.querySelectorAll('form.filter-zeile:not(.f
         huelle.appendChild(knopf);
     });
 })();
+
+/* Stammdaten: "Bearbeiten"/"Aufheben" fuellt das Formular data-form mit den Werten aus data-fuellen
+   (JSON, Feldname -> Wert; Haken: 1/0). "Neu" leert das Formular wieder (auch die versteckte id). */
+(function () {
+    function setzen(form, werte) {
+        Object.keys(werte).forEach(function (name) {
+            var v = werte[name];
+            Array.prototype.forEach.call(form.querySelectorAll('[name="' + name + '"]'), function (el) {
+                if (el.type === 'checkbox') el.checked = v === 1 || v === true || v === '1';
+                else if (el.type !== 'hidden' || name === 'id' || name === 'bundesland') el.value = v === null ? '' : v;
+            });
+        });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fuellen]'), function (knopf) {
+        knopf.addEventListener('click', function () {
+            var form = document.getElementById(knopf.getAttribute('data-form'));
+            if (!form) return;
+            form.hidden = false;
+            setzen(form, JSON.parse(knopf.getAttribute('data-fuellen')));
+            form.classList.add('bearbeiten');
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            var erstes = form.querySelector('input:not([type=hidden]):not([readonly]), select');
+            if (erstes) erstes.focus({ preventScroll: true });
+        });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('form.stammdaten-form button.btn-neu'), function (knopf) {
+        knopf.addEventListener('click', function () {
+            var form = knopf.form;
+            form.reset();
+            var id = form.querySelector('input[type=hidden][name=id]');
+            if (id) id.value = '';
+            form.classList.remove('bearbeiten');
+            var aus = form.nextElementSibling;
+            if (aus && aus.classList.contains('ergebnis')) aus.hidden = true;
+        });
+    });
+})();

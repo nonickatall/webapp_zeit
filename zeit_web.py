@@ -38,6 +38,7 @@ RECHT_LESEN = "zef_lesen"
 RECHT_ZEITREGEL = "zef_zeitregel"
 RECHT_KORREKTUR = "zef_korrektur"
 RECHT_KLAEREN = "zef_klaeren"
+RECHT_STAMMDATEN = "zef_stammdaten"
 ANFRAGE_ID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 OEFFENTLICH = {"login", "passwort", "static"}
@@ -467,6 +468,140 @@ def zeitregel_neu():
     return {"ok": True, "anfrage_id": anfrage_id}
 
 
+# ---------------------------------------------------------------- Stammdaten (Umbau Schritt 1)
+STAMMDATEN_TEILE = {
+    "tagesplaene": "Tagespläne", "wochenplaene": "Wochenpläne", "zuordnung": "Zuordnung",
+    "abwesenheitsarten": "Abwesenheitsarten", "feiertage": "Feiertage", "salden": "Startsalden",
+    "urlaub": "Urlaubskonto",
+}
+STAMMDATEN_SPUR = {
+    "tagesplaene": ("tagesplan",), "wochenplaene": ("wochenplan",), "zuordnung": ("user_wochenplan",),
+    "abwesenheitsarten": ("abwesenheitsart",), "feiertage": ("feiertag",), "salden": ("saldo_start",),
+    "urlaub": ("urlaubskonto",),
+}
+BUNDESLAENDER = {
+    "BW": "Baden-Württemberg", "BY": "Bayern", "BE": "Berlin", "BB": "Brandenburg", "HB": "Bremen",
+    "HH": "Hamburg", "HE": "Hessen", "MV": "Mecklenburg-Vorpommern", "NI": "Niedersachsen",
+    "NW": "Nordrhein-Westfalen", "RP": "Rheinland-Pfalz", "SL": "Saarland", "SN": "Sachsen",
+    "ST": "Sachsen-Anhalt", "SH": "Schleswig-Holstein", "TH": "Thüringen",
+}
+WOCHENTAGE = (("mo", "Mo"), ("di", "Di"), ("mi", "Mi"), ("do", "Do"), ("fr", "Fr"), ("sa", "Sa"), ("so", "So"))
+# Erlaubte Felder je Auftragsart; geprueft wird verbindlich im zeiterfassung_server (zeit_stammdaten.py)
+STAMMDATEN_FELDER = {
+    "tagesplan": ("id", "nr", "name", "farbe", "frei", "soll_minuten", "sollbeginn", "abschneiden",
+                  "kernzeit_ende", "pause1_minuten", "pause1_ab_minuten", "pause2_minuten",
+                  "pause2_ab_minuten", "aktiv"),
+    "wochenplan": ("id", "nr", "name", "tp_mo", "tp_di", "tp_mi", "tp_do", "tp_fr", "tp_sa", "tp_so", "aktiv"),
+    "zuordnung": ("user_id", "gueltig_ab", "wochenplan_id"),
+    "zuordnung_aufheben": ("id",),
+    "abwesenheitsart": ("id", "kuerzel", "name", "farbe", "gutschrift", "urlaub", "reihenfolge", "aktiv"),
+    "feiertage_erzeugen": ("jahr", "bundesland"),
+    "feiertag": ("datum", "name", "bundesland", "halb", "aktiv"),
+    "saldo_start": ("user_id", "stichtag", "minuten", "aktiv"),
+    "urlaubskonto": ("user_id", "jahr", "anspruch_tage", "uebertrag_tage"),
+}
+# Felder, die als Stunden "h:mm" (auch "-26:44") eingegeben werden duerfen -> Minuten
+STUNDEN_FELDER = {"soll_minuten", "pause1_ab_minuten", "pause2_ab_minuten", "minuten"}
+STUNDEN_RE = re.compile(r"^([+-]?)(\d{1,4}):([0-5]\d)$")
+
+
+def _stunden_minuten(v):
+    t = str(v if v is not None else "").strip().replace(",", ":")
+    m = STUNDEN_RE.match(t)
+    if not m:
+        return t     # Zahl (Minuten) oder ungueltig -> der Dienst prueft
+    minuten = int(m.group(2)) * 60 + int(m.group(3))
+    return -minuten if m.group(1) == "-" else minuten
+
+
+def _zuordnung_stand(zeilen, heute):
+    """stand je Zuordnung: gueltig | kuenftig | abgeloest | aufgehoben."""
+    je_user = {}
+    for z in zeilen:
+        if z["aufgehoben_am"] is not None:
+            z["stand"] = "aufgehoben"
+        else:
+            je_user.setdefault(z["user_id"], []).append(z)
+    for liste in je_user.values():
+        liste.sort(key=lambda z: z["gueltig_ab"])
+        aktuell = None
+        for z in liste:
+            if z["gueltig_ab"] <= heute:
+                aktuell = z
+        for z in liste:
+            z["stand"] = ("kuenftig" if z["gueltig_ab"] > heute else
+                          "gueltig" if z is aktuell else "abgeloest")
+
+
+@app.route("/zeit/stammdaten")
+def stammdaten():
+    teil = request.args.get("teil", "")
+    if teil not in STAMMDATEN_TEILE:
+        teil = "tagesplaene"
+    heute = _heute()
+    jahr = _int("jahr") or heute.year
+    if not 2000 <= jahr <= 2100:
+        jahr = heute.year
+    darf = db.hat_recht(g.mu["id"], RECHT_STAMMDATEN)
+    tps = db.tagesplaene()
+    ctx = {"teil": teil, "teile": STAMMDATEN_TEILE, "darf": darf, "jahr": jahr, "heute": heute,
+           "tagesplaene": tps, "tp_nach_id": {t["id"]: t for t in tps}, "wochentage": WOCHENTAGE,
+           "bundeslaender": BUNDESLAENDER, "bundesland": cfg.get("bundesland", "RP"),
+           "alle_user": db.aktive_user(), "spur": db.stammdaten_spur(STAMMDATEN_SPUR[teil])}
+    if teil in ("wochenplaene", "zuordnung"):
+        wps = db.wochenplaene()
+        for w in wps:
+            w["summe"] = sum(int((ctx["tp_nach_id"].get(w["tp_" + t]) or {}).get("soll_minuten") or 0)
+                             for t, _ in WOCHENTAGE)
+        ctx["wochenplaene"] = wps
+    if teil == "zuordnung":
+        uid = _int("user")
+        zeilen = db.zuordnungen(uid)
+        _zuordnung_stand(zeilen, heute)
+        ctx.update(zuordnungen=zeilen, uid=uid)
+    elif teil == "abwesenheitsarten":
+        ctx["arten"] = db.abwesenheitsarten()
+    elif teil == "feiertage":
+        ctx["feiertage"] = db.feiertage(jahr)
+    elif teil == "salden":
+        ctx["salden"] = db.salden_start()
+    elif teil == "urlaub":
+        ctx["konten"] = db.urlaubskonten(jahr)
+    return render_template("stammdaten.html", seite="stammdaten", hilfe="Stammdaten", **ctx)
+
+
+@app.route("/zeit/stammdaten/auftrag", methods=["POST"])
+def stammdaten_auftrag():
+    """Auftrag zef_stammdaten an die Engine; inhaltlich prueft der zeiterfassung_server."""
+    d = _auftrag_anfrage()
+    if not db.hat_recht(g.mu["id"], RECHT_STAMMDATEN):
+        _log_db(g.mu["name"], "stammdaten", f"abgewiesen:kein_recht {RECHT_STAMMDATEN}")
+        return {"ok": False, "fehler": "Kein Recht zum Pflegen der Stammdaten."}, 403
+    anfrage_id = str(d.get("anfrage_id") or "").lower() or str(uuid.uuid4())
+    if not ANFRAGE_ID_RE.match(anfrage_id):
+        return {"ok": False, "fehler": "Ungültige Anfrage."}, 400
+    art = str(d.get("art") or "")
+    if art not in STAMMDATEN_FELDER:
+        return {"ok": False, "fehler": "Unbekannte Art."}, 400
+    param = {"art": art, "begruendung": str(d.get("begruendung") or "").strip()[:255]}
+    for f in STAMMDATEN_FELDER[art]:
+        v = d.get(f)
+        if isinstance(v, str):
+            v = v.strip()[:255]
+        param[f] = _stunden_minuten(v) if f in STUNDEN_FELDER else v
+    nummer = (g.mu.get("nummer") or "").strip()
+    if not nummer:
+        return {"ok": False, "fehler": "Für Ihren Zugang ist keine Rufnummer hinterlegt."}, 403
+    try:
+        zeit_mqtt.senden(cfg, RECHT_STAMMDATEN, nummer, anfrage_id, zeit_mqtt.param_kodieren(param))
+    except Exception as e:
+        log.error(f"stammdaten_auftrag: Versand fehlgeschlagen: {e}")
+        return {"ok": False, "fehler": "Der Auftrag konnte nicht gesendet werden."}, 503
+    _log_db(g.mu["name"], "stammdaten", f"auftrag {art} gesendet")
+    log.info(f"stammdaten_auftrag: {g.mu['name']} {art}, anfrage_id={anfrage_id}")
+    return {"ok": True, "anfrage_id": anfrage_id}
+
+
 @app.route("/zeit/datensatz/<int:ze_id>/korrektur", methods=["POST"])
 def korrektur_neu(ze_id):
     """Auftrag "Korrektur" (Gehen nachtragen, Stempelzeit, Zeitregel zuordnen, Abzug/Zuschlag) an die
@@ -556,7 +691,19 @@ def _korrektur_senden(d, ze_id, art, param):
 
 GRUND_TEXT = {
     "rueckwirkend": "„gültig ab“ darf nicht in der Vergangenheit liegen.",
-    "bereits_vorhanden": "Für diesen Mitarbeiter gibt es ab diesem Tag schon eine Zeitregel.",
+    "bereits_vorhanden": "Für diesen Mitarbeiter gibt es ab diesem Tag schon einen Eintrag.",
+    "nr_vergeben": "Diese Nummer ist schon vergeben.",
+    "kuerzel_vergeben": "Dieses Kürzel ist schon vergeben.",
+    "frei_mit_soll": "Ein freier Tag hat kein Soll (0:00).",
+    "abschneiden_ohne_sollbeginn": "„Vor Sollbeginn nicht anrechnen“ braucht einen Sollbeginn.",
+    "kernzeit_ende_vor_beginn": "Das Kernzeit-Ende muss nach dem Sollbeginn liegen.",
+    "pause_stufen": "Pause 2 muss später greifen als Pause 1 („ab“ größer).",
+    "in_benutzung": "Wird noch benutzt und kann nicht deaktiviert werden.",
+    "tagesplan_unbekannt": "Ein gewählter Tagesplan fehlt oder ist nicht aktiv.",
+    "wochenplan_unbekannt": "Der Wochenplan fehlt oder ist nicht aktiv.",
+    "monat_abgeschlossen": "Der Monat ist bereits abgeschlossen.",
+    "objekt_unbekannt": "Den Eintrag gibt es nicht (mehr).",
+    "bereits_aufgehoben": "Der Eintrag ist schon aufgehoben.",
     "mitarbeiter_unbekannt": "Der Mitarbeiter ist unbekannt oder gesperrt.",
     "begruendung_fehlt": "Die Begründung fehlt.",
     "bearbeiter_unbekannt": "Ihr Zugang konnte keinem aktiven Benutzer zugeordnet werden.",
@@ -593,7 +740,7 @@ def auftrag(anfrage_id):
     text = GRUND_TEXT.get(grund) or (f"Ungültige Angabe ({grund.split(':', 1)[1]})."
                                      if grund.startswith("param_ungueltig:") else grund)
     return {"ok": True, "ergebnis": r["ergebnis"], "grund": grund, "text": text,
-            "zeitregel_id": r["zeitregel_id"],
+            "zeitregel_id": r["zeitregel_id"], "objekt": r.get("objekt"),
             "zeiterfassung_id": r["zeiterfassung_id"], "uhrzeit": f_zeit(r["eingegangen"], "%H:%M")}
 
 

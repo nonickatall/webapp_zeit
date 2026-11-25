@@ -70,6 +70,7 @@ def lade_konfig():
         "sperre_sek": int(wert("anmeldung", "sperre_minuten", "15")) * 60,
         "log_datei": wert("webapp_zeit", "log_datei", "webapp_zeit.log"),
         "herkunft": wert("webapp_zeit", "herkunft", "webapp_zeit"),
+        "bundesland": wert("webapp_zeit", "bundesland", "RP"),   # Vorgabe fuer Feiertage
         # Auftraege an die Engine (Stufe B): ohne Host/User sind nur Lesefunktionen aktiv
         "mqtt_host": wert("mqtt", "mqtt_host", ""),
         "mqtt_port": int(wert("mqtt", "mqtt_port", "1883")),
@@ -280,6 +281,51 @@ class ZeitDB:
         if uid:
             return self.abfrage(sql + "WHERE zr.user_id = %s ORDER BY zr.gueltig_ab DESC", (uid,))
         return self.abfrage(sql + "ORDER BY u.`user`, zr.gueltig_ab DESC")
+
+    # ---------------- 7. Stammdaten (Umbau Schritt 1)
+    def tagesplaene(self):
+        return self.abfrage(
+            f"SELECT tp.*, TIME_FORMAT(tp.sollbeginn, '%%H:%%i') AS sollbeginn_hhmm, "
+            f"TIME_FORMAT(tp.kernzeit_ende, '%%H:%%i') AS kernzeit_ende_hhmm "
+            f"FROM {self.z}.tagesplan tp ORDER BY tp.nr")
+
+    def wochenplaene(self):
+        return self.abfrage(f"SELECT * FROM {self.z}.wochenplan ORDER BY nr")
+
+    def zuordnungen(self, uid=None):
+        sql = (f"SELECT z.*, u.`user` AS name, w.nr AS wp_nr, w.name AS wp_name, e.`user` AS ersteller, "
+               f"a.`user` AS aufheber FROM {self.z}.user_wochenplan z "
+               f"LEFT JOIN {self.m}.`user` u ON u.id = z.user_id "
+               f"LEFT JOIN {self.z}.wochenplan w ON w.id = z.wochenplan_id "
+               f"LEFT JOIN {self.m}.`user` e ON e.id = z.erstellt_von "
+               f"LEFT JOIN {self.m}.`user` a ON a.id = z.aufgehoben_von ")
+        if uid:
+            return self.abfrage(sql + "WHERE z.user_id = %s ORDER BY z.gueltig_ab DESC, z.id DESC", (uid,))
+        return self.abfrage(sql + "ORDER BY u.`user`, z.gueltig_ab DESC, z.id DESC")
+
+    def abwesenheitsarten(self):
+        return self.abfrage(f"SELECT * FROM {self.z}.abwesenheitsart ORDER BY reihenfolge, kuerzel")
+
+    def feiertage(self, jahr):
+        return self.abfrage(f"SELECT * FROM {self.z}.feiertag WHERE YEAR(datum) = %s ORDER BY datum", (jahr,))
+
+    def salden_start(self):
+        return self.abfrage(
+            f"SELECT s.*, u.`user` AS name, e.`user` AS ersteller FROM {self.z}.saldo_start s "
+            f"LEFT JOIN {self.m}.`user` u ON u.id = s.user_id "
+            f"LEFT JOIN {self.m}.`user` e ON e.id = s.erstellt_von ORDER BY u.`user`, s.stichtag DESC")
+
+    def urlaubskonten(self, jahr):
+        return self.abfrage(
+            f"SELECT k.*, u.`user` AS name FROM {self.z}.urlaubskonto k "
+            f"LEFT JOIN {self.m}.`user` u ON u.id = k.user_id WHERE k.jahr = %s ORDER BY u.`user`", (jahr,))
+
+    def stammdaten_spur(self, tabellen, anzahl=30):
+        platz = ", ".join(["%s"] * len(tabellen))
+        return self.abfrage(
+            f"SELECT s.*, u.`user` AS bearbeiter FROM {self.z}.stammdaten_aenderung s "
+            f"LEFT JOIN {self.m}.`user` u ON u.id = s.geaendert_von "
+            f"WHERE s.tabelle IN ({platz}) ORDER BY s.id DESC LIMIT %s", (*tabellen, anzahl))
 
     # ---------------- 6. Monatssummen
     def summen(self, jahr, monat):

@@ -156,3 +156,16 @@ details.anlegen > summary .zusatz { font-weight: normal; opacity: .85; }
 details.anlegen[open] > summary { background: #6c757d; }
 
 .notiz { color: #6d4c00; font-size: 11px; }
+/* Stammdaten (Umbau Schritt 1) */
+.unterreiter { display: flex; flex-wrap: wrap; gap: 2px; margin: 0 0 10px; border-bottom: 2px solid #2c3e50; }
+.unterreiter a { padding: 5px 12px; background: #e8ecf0; color: #2c3e50; text-decoration: none; font-size: 13px; border-radius: 3px 3px 0 0; }
+.unterreiter a.active { background: #2c3e50; color: #fff; font-weight: bold; }
+.unterreiter a:hover:not(.active) { background: #d5dde5; }
+.farbfeld { display: inline-block; width: 14px; height: 14px; border: 1px solid #888; border-radius: 2px; vertical-align: middle; }
+.filter-item input[type=color] { width: 48px; padding: 0 2px; }
+.filter-item.haken > span { display: flex; align-items: center; height: 26px; }
+.filter-item .haken-text { font-size: 13px; color: #333; height: auto; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.filter-item .haken-text input { width: auto; height: auto; }
+.filter-item input.breit-lesen { width: 320px; background: #f4f6f8; }
+form.bearbeiten { outline: 2px solid #f0ad4e; }
+table.spur td.json { font-family: monospace; font-size: 11px; color: #555; max-width: 360px; word-break: break-all; }

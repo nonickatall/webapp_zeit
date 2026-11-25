@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block titel %}Stammdaten – {{ teile[teil] }}{% endblock %}
+{% block inhalt %}
+{% set url = url_for('stammdaten_auftrag') %}
+{% set zeit_muster = "([01][0-9]|2[0-3]):[0-5][0-9]" %}
+{% set stunden_muster = "-?[0-9]{1,4}:[0-5][0-9]" %}
+{% set wt_namen = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] %}
+
+{% macro ja(wert) %}{{ '✓' if wert else '' }}{% endmacro %}
+{% macro haken(name, text, an) %}
+    <div class="filter-item haken">
+        <label>&nbsp;</label>
+        <span><input type="hidden" name="{{ name }}" value="0"><label class="haken-text"><input type="checkbox" name="{{ name }}" value="1" {{ 'checked' if an }}> {{ text }}</label></span>
+    </div>
+{% endmacro %}
+{% macro knoepfe(pflicht=False, beispiel="") %}
+    <div class="filter-item breit">
+        <label>Begründung{{ ' *' if pflicht }}</label>
+        <input type="text" name="begruendung" maxlength="255" {{ 'required minlength=3' if pflicht }} placeholder="{{ beispiel }}">
+    </div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Speichern</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-filter-reset btn-neu">Neu</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+{% endmacro %}
+{% macro mitarbeiter_auswahl(name, gewaehlt=None) %}
+    <select name="{{ name }}" required>
+        <option value="">– bitte wählen –</option>
+        {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if gewaehlt == m.id }}>{{ m.name | mitarbeiter(m.id) }}</option>{% endfor %}
+    </select>
+{% endmacro %}
+{% macro farbfeld(farbe) %}<span class="farbfeld" style="background: {{ farbe }}"></span>{% endmacro %}
+
+<nav class="unterreiter">
+    {% for k, t in teile.items() %}<a href="{{ url_for('stammdaten', teil=k) }}" class="{{ 'active' if k == teil }}">{{ t }}</a>{% endfor %}
+</nav>
+
+{# ================================================================ Tagespläne #}
+{% if teil == 'tagesplaene' %}
+{% if darf %}
+<h2 class="abschnitt-titel"><span id="titel-tagesplan">Tagesplan anlegen / ändern</span><span class="zusatz">Stunden als h:mm, Pausen in Minuten; „ab“ = Anwesenheit am Tag</span></h2>
+<form id="form-tagesplan" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Tagesplan gespeichert">
+    <input type="hidden" name="art" value="tagesplan"><input type="hidden" name="id" value="">
+    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="schmal"></div>
+    <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required></div>
+    <div class="filter-item"><label>Farbe</label><input type="color" name="farbe" value="#1f3a93"></div>
+    <div class="filter-item"><label>Soll</label><input type="text" name="soll_minuten" value="8:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    {{ haken('frei', 'freier Tag', False) }}
+    <div class="filter-item"><label>Sollbeginn</label><input type="text" class="uhrzeit" name="sollbeginn" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5"></div>
+    {{ haken('abschneiden', 'vorher nicht anrechnen', False) }}
+    <div class="filter-item"><label>Kernzeit bis</label><input type="text" class="uhrzeit" name="kernzeit_ende" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5"></div>
+    <div class="filter-item"><label>Pause 1 (min)</label><input type="number" name="pause1_minuten" min="0" max="240" value="30" class="schmal"></div>
+    <div class="filter-item"><label>ab</label><input type="text" name="pause1_ab_minuten" value="6:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item"><label>Pause 2 (min)</label><input type="number" name="pause2_minuten" min="0" max="240" value="15" class="schmal"></div>
+    <div class="filter-item"><label>ab</label><input type="text" name="pause2_ab_minuten" value="9:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    {{ haken('aktiv', 'aktiv', True) }}
+    {{ knoepfe() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Tagespläne ({{ tagesplaene | length }})</span></h2>
+{% if not tagesplaene %}<p class="leer">Noch keine Tagespläne.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>Nr.</th><th></th><th>Name</th><th>Soll</th><th>Sollbeginn</th><th>vorher nicht anrechnen</th><th>Kernzeit bis</th><th>Pause 1</th><th>Pause 2</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for t in tagesplaene %}
+<tr class="{{ 'abgeloest' if not t.aktiv }}"><td class="zahl">{{ t.nr }}</td><td>{{ farbfeld(t.farbe) }}</td><td>{{ t.name }}{% if t.frei %} <span class="marke grau">frei</span>{% endif %}</td>
+<td class="zahl">{{ t.soll_minuten | dauer }}</td><td>{{ t.sollbeginn_hhmm or '–' }}</td><td>{{ ja(t.abschneiden) }}</td><td>{{ t.kernzeit_ende_hhmm or '–' }}</td>
+<td>{% if t.pause1_minuten %}{{ t.pause1_minuten }} min ab {{ t.pause1_ab_minuten | dauer }}{% else %}–{% endif %}</td>
+<td>{% if t.pause2_minuten %}+{{ t.pause2_minuten }} min ab {{ t.pause2_ab_minuten | dauer }}{% else %}–{% endif %}</td>
+<td>{{ ja(t.aktiv) }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-tagesplan" data-fuellen='{{ {"id": t.id, "nr": t.nr, "name": t.name, "farbe": t.farbe, "frei": t.frei, "soll_minuten": t.soll_minuten | dauer, "sollbeginn": t.sollbeginn_hhmm or "", "abschneiden": t.abschneiden, "kernzeit_ende": t.kernzeit_ende_hhmm or "", "pause1_minuten": t.pause1_minuten, "pause1_ab_minuten": t.pause1_ab_minuten | dauer, "pause2_minuten": t.pause2_minuten, "pause2_ab_minuten": t.pause2_ab_minuten | dauer, "aktiv": t.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p class="fuss">Pause: Pause 1 fällt an, sobald die Anwesenheit am Tag „ab“ erreicht; Pause 2 kommt ab ihrer Schwelle dazu (z.B. 30 min ab 6:00 und 15 min ab 9:00 = 45 min). Früheres Kommen zählt, außer „vorher nicht anrechnen“ ist gesetzt.</p>
+{% endif %}
+
+{# ================================================================ Wochenpläne #}
+{% if teil == 'wochenplaene' %}
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Wochenplan anlegen / ändern</span><span class="zusatz">je Wochentag ein Tagesplan</span></h2>
+{% if not tagesplaene %}<p class="leer">Bitte zuerst Tagespläne anlegen.</p>{% else %}
+<form id="form-wochenplan" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Wochenplan gespeichert">
+    <input type="hidden" name="art" value="wochenplan"><input type="hidden" name="id" value="">
+    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="schmal"></div>
+    <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required></div>
+    {% for k, t in wochentage %}
+    <div class="filter-item"><label>{{ t }} *</label>
+        <select name="tp_{{ k }}" required>
+            <option value="">–</option>
+            {% for p in tagesplaene if p.aktiv %}<option value="{{ p.id }}">{{ p.nr }} {{ p.name }} ({{ p.soll_minuten | dauer }})</option>{% endfor %}
+        </select>
+    </div>
+    {% endfor %}
+    {{ haken('aktiv', 'aktiv', True) }}
+    {{ knoepfe() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+{% endif %}
+<h2 class="abschnitt-titel"><span>Wochenpläne ({{ wochenplaene | length }})</span></h2>
+{% if not wochenplaene %}<p class="leer">Noch keine Wochenpläne.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>Nr.</th><th>Name</th>{% for k, t in wochentage %}<th>{{ t }}</th>{% endfor %}<th>Woche</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for w in wochenplaene %}
+<tr class="{{ 'abgeloest' if not w.aktiv }}"><td class="zahl">{{ w.nr }}</td><td>{{ w.name }}</td>
+{% for k, t in wochentage %}{% set p = tp_nach_id.get(w['tp_' ~ k]) %}
+<td>{% if p %}{{ farbfeld(p.farbe) }} {{ p.nr }} <span class="notiz">{{ p.soll_minuten | dauer }}</span>{% else %}?{% endif %}</td>
+{% endfor %}
+<td class="zahl">{{ w.summe | dauer }}</td><td>{{ ja(w.aktiv) }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-wochenplan" data-fuellen='{{ {"id": w.id, "nr": w.nr, "name": w.name, "tp_mo": w.tp_mo, "tp_di": w.tp_di, "tp_mi": w.tp_mi, "tp_do": w.tp_do, "tp_fr": w.tp_fr, "tp_sa": w.tp_sa, "tp_so": w.tp_so, "aktiv": w.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endif %}
+
+{# ================================================================ Zuordnung #}
+{% if teil == 'zuordnung' %}
+<form method="get" action="{{ url_for('stammdaten') }}" class="filter-zeile">
+    <input type="hidden" name="teil" value="zuordnung">
+    <div class="filter-item"><label>Mitarbeiter</label>
+        <select name="user"><option value="">alle</option>
+            {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if uid == m.id }}>{{ m.name | mitarbeiter(m.id) }}</option>{% endfor %}
+        </select></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Filter</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('stammdaten', teil='zuordnung') }}">✗ Filter</a></div>
+</form>
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Wochenplan zuordnen</span><span class="zusatz">gilt ab dem Tag bis zur nächsten Zuordnung; nie ändern, nur neu zuordnen oder aufheben</span></h2>
+<form id="form-zuordnung" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Zuordnung gespeichert">
+    <input type="hidden" name="art" value="zuordnung">
+    <div class="filter-item"><label>Mitarbeiter *</label>{{ mitarbeiter_auswahl('user_id', uid) }}</div>
+    <div class="filter-item"><label>gültig ab *</label><input type="date" name="gueltig_ab" value="{{ heute.isoformat() }}" required></div>
+    <div class="filter-item"><label>Wochenplan *</label>
+        <select name="wochenplan_id" required><option value="">– bitte wählen –</option>
+            {% for w in wochenplaene if w.aktiv %}<option value="{{ w.id }}">{{ w.nr }} {{ w.name }} ({{ w.summe | dauer }} h/Woche)</option>{% endfor %}
+        </select></div>
+    {{ knoepfe(True, "z.B. Arbeitsvertrag vom …") }}
+</form>
+<p class="ergebnis" hidden></p>
+<form id="form-aufheben" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Zuordnung aufgehoben" hidden>
+    <input type="hidden" name="art" value="zuordnung_aufheben"><input type="hidden" name="id" value="">
+    <div class="filter-item"><label>Aufheben</label><input type="text" name="text" readonly class="breit-lesen"></div>
+    <div class="filter-item breit"><label>Begründung *</label><input type="text" name="begruendung" maxlength="255" required minlength="3" placeholder="z.B. versehentlich angelegt"></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-reset">Aufheben</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Zuordnungen ({{ zuordnungen | length }})</span></h2>
+{% if not zuordnungen %}<p class="leer">Keine Zuordnungen.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>gültig ab</th><th>Wochenplan</th><th>Begründung</th><th>Erstellt von</th><th>Erstellt am</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for z in zuordnungen %}
+<tr class="{{ 'abgeloest' if z.stand in ('abgeloest', 'aufgehoben') }}"><td class="zahl">{{ z.user_id }}</td><td>{{ z.name or '?' }}</td>
+<td>{{ z.gueltig_ab.strftime('%d.%m.%Y') }}
+    {% if z.stand == 'gueltig' %}<span class="marke gruen">gültig</span>{% elif z.stand == 'kuenftig' %}<span class="marke blau">künftig</span>{% elif z.stand == 'aufgehoben' %}<span class="marke rot">aufgehoben</span>{% else %}<span class="marke grau">abgelöst</span>{% endif %}</td>
+<td>{{ z.wp_nr }} {{ z.wp_name }}</td><td>{{ z.begruendung }}</td><td>{{ z.ersteller or '?' }}</td><td>{{ z.erstellt_am | zeit }}</td>
+{% if darf %}<td>{% if z.stand != 'aufgehoben' %}<button type="button" class="btn-kopieren" data-form="form-aufheben" data-fuellen='{{ {"id": z.id, "text": (z.name or "?") ~ " ab " ~ z.gueltig_ab.strftime("%d.%m.%Y") ~ ": " ~ z.wp_name} | tojson }}'>Aufheben</button>{% else %}<span class="notiz">{{ z.aufheber or '?' }}, {{ z.aufgehoben_am | zeit }}</span>{% endif %}</td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p class="fuss">Je Mitarbeiter gilt die Zuordnung mit dem größten „gültig ab“, das nicht nach dem Tag liegt. Rückwirkend ist erlaubt, aber nicht in abgeschlossene Monate.</p>
+{% endif %}
+
+{# ================================================================ Abwesenheitsarten #}
+{% if teil == 'abwesenheitsarten' %}
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Abwesenheitsart anlegen / ändern</span><span class="zusatz">Gutschrift „Soll“ = was laut Plan an dem Tag gearbeitet worden wäre</span></h2>
+<form id="form-art" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Abwesenheitsart gespeichert">
+    <input type="hidden" name="art" value="abwesenheitsart"><input type="hidden" name="id" value="">
+    <div class="filter-item"><label>Kürzel *</label><input type="text" name="kuerzel" maxlength="4" required class="schmal"></div>
+    <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required></div>
+    <div class="filter-item"><label>Farbe</label><input type="color" name="farbe" value="#e6c229"></div>
+    <div class="filter-item"><label>Gutschrift</label><select name="gutschrift"><option value="soll">Soll des Tages</option><option value="keine">keine</option></select></div>
+    {{ haken('urlaub', 'zählt als Urlaub', False) }}
+    <div class="filter-item"><label>Reihenfolge</label><input type="number" name="reihenfolge" value="0" class="schmal"></div>
+    {{ haken('aktiv', 'aktiv', True) }}
+    {{ knoepfe() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Abwesenheitsarten ({{ arten | length }})</span></h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Kürzel</th><th></th><th>Name</th><th>Gutschrift</th><th>Urlaub</th><th>Reihenfolge</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for a in arten %}
+<tr class="{{ 'abgeloest' if not a.aktiv }}"><td>{{ a.kuerzel }}</td><td>{{ farbfeld(a.farbe) }}</td><td>{{ a.name }}</td>
+<td>{{ 'Soll des Tages' if a.gutschrift == 'soll' else 'keine' }}</td><td>{{ ja(a.urlaub) }}</td><td class="zahl">{{ a.reihenfolge }}</td><td>{{ ja(a.aktiv) }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-art" data-fuellen='{{ {"id": a.id, "kuerzel": a.kuerzel, "name": a.name, "farbe": a.farbe, "gutschrift": a.gutschrift, "urlaub": a.urlaub, "reihenfolge": a.reihenfolge, "aktiv": a.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+<p class="fuss">Berufsschule ist keine Abwesenheit, sondern ein Tagesplan. Eingetragen werden Abwesenheiten später direkt am Tag der Monatsübersicht.</p>
+{% endif %}
+
+{# ================================================================ Feiertage #}
+{% if teil == 'feiertage' %}
+<form method="get" action="{{ url_for('stammdaten') }}" class="filter-zeile">
+    <input type="hidden" name="teil" value="feiertage">
+    <div class="filter-item"><label>Jahr</label><input type="number" name="jahr" value="{{ jahr }}" min="2000" max="2100" class="schmal"></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Anzeigen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('stammdaten', teil='feiertage', jahr=jahr - 1) }}">◀ {{ jahr - 1 }}</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('stammdaten', teil='feiertage', jahr=jahr + 1) }}">{{ jahr + 1 }} ▶</a></div>
+</form>
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Gesetzliche Feiertage erzeugen</span><span class="zusatz">fügt nur fehlende Tage hinzu, vorhandene bleiben unverändert</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}" data-ok="Feiertage erzeugt">
+    <input type="hidden" name="art" value="feiertage_erzeugen">
+    <div class="filter-item"><label>Jahr *</label><input type="number" name="jahr" value="{{ jahr }}" min="2000" max="2100" required class="schmal"></div>
+    <div class="filter-item"><label>Bundesland *</label>
+        <select name="bundesland">{% for k, n in bundeslaender.items() %}<option value="{{ k }}" {{ 'selected' if k == bundesland }}>{{ n }}</option>{% endfor %}</select></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Erzeugen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+<h2 class="abschnitt-titel"><span>Feiertag hinzufügen / ändern</span><span class="zusatz">z.B. Heiligabend als halber Feiertag; deaktivieren statt löschen</span></h2>
+<form id="form-feiertag" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Feiertag gespeichert">
+    <input type="hidden" name="art" value="feiertag"><input type="hidden" name="bundesland" value="{{ bundesland }}">
+    <div class="filter-item"><label>Datum *</label><input type="date" name="datum" required></div>
+    <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required placeholder="z.B. Heiligabend"></div>
+    {{ haken('halb', 'halber Tag', False) }}
+    {{ haken('aktiv', 'aktiv', True) }}
+    {{ knoepfe() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Feiertage {{ jahr }} ({{ feiertage | length }})</span></h2>
+{% if not feiertage %}<p class="leer">Für {{ jahr }} sind keine Feiertage eingetragen.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>Datum</th><th>Tag</th><th>Name</th><th>halb</th><th>Land</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for f in feiertage %}
+<tr class="{{ 'abgeloest' if not f.aktiv }}"><td>{{ f.datum.strftime('%d.%m.%Y') }}</td><td>{{ wt_namen[f.datum.weekday()] }}</td><td>{{ f.name }}</td><td>{{ ja(f.halb) }}</td><td>{{ f.bundesland }}</td><td>{{ ja(f.aktiv) }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-feiertag" data-fuellen='{{ {"datum": f.datum.isoformat(), "name": f.name, "halb": f.halb, "aktiv": f.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endif %}
+
+{# ================================================================ Startsalden #}
+{% if teil == 'salden' %}
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Startsaldo eintragen / ändern</span><span class="zusatz">Saldo zu Beginn des Stichtags, z.B. Übernahme aus smart time</span></h2>
+<form id="form-saldo" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Startsaldo gespeichert">
+    <input type="hidden" name="art" value="saldo_start">
+    <div class="filter-item"><label>Mitarbeiter *</label>{{ mitarbeiter_auswahl('user_id') }}</div>
+    <div class="filter-item"><label>Stichtag *</label><input type="date" name="stichtag" required></div>
+    <div class="filter-item"><label>Saldo *</label><input type="text" name="minuten" required pattern="{{ stunden_muster }}" placeholder="-26:44" class="schmal"></div>
+    {{ haken('aktiv', 'aktiv', True) }}
+    {{ knoepfe(True, "z.B. Übernahme smart time, Stand 31.10.2026") }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Startsalden ({{ salden | length }})</span></h2>
+{% if not salden %}<p class="leer">Noch keine Startsalden.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>Stichtag</th><th>Saldo</th><th>Begründung</th><th>aktiv</th><th>Erstellt von</th><th>Erstellt am</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for s in salden %}
+<tr class="{{ 'abgeloest' if not s.aktiv }}"><td class="zahl">{{ s.user_id }}</td><td>{{ s.name or '?' }}</td><td>{{ s.stichtag.strftime('%d.%m.%Y') }}</td>
+<td class="zahl">{{ s.minuten | dauer }}</td><td>{{ s.begruendung }}</td><td>{{ ja(s.aktiv) }}</td><td>{{ s.ersteller or '?' }}</td><td>{{ s.erstellt_am | zeit }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-saldo" data-fuellen='{{ {"user_id": s.user_id, "stichtag": s.stichtag.isoformat(), "minuten": s.minuten | dauer, "aktiv": s.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p class="fuss">Gilt ein späterer Stichtag, beginnt der Saldo dort neu. Vor dem ersten Stichtag wird für den Mitarbeiter kein Saldo gerechnet.</p>
+{% endif %}
+
+{# ================================================================ Urlaubskonto #}
+{% if teil == 'urlaub' %}
+<form method="get" action="{{ url_for('stammdaten') }}" class="filter-zeile">
+    <input type="hidden" name="teil" value="urlaub">
+    <div class="filter-item"><label>Jahr</label><input type="number" name="jahr" value="{{ jahr }}" min="2000" max="2100" class="schmal"></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">✓ Anzeigen</button></div>
+</form>
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Urlaubsanspruch eintragen / ändern</span><span class="zusatz">Tage, halbe Tage mit Komma (z.B. 27,5)</span></h2>
+<form id="form-urlaub" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Urlaubskonto gespeichert">
+    <input type="hidden" name="art" value="urlaubskonto">
+    <div class="filter-item"><label>Mitarbeiter *</label>{{ mitarbeiter_auswahl('user_id') }}</div>
+    <div class="filter-item"><label>Jahr *</label><input type="number" name="jahr" value="{{ jahr }}" min="2000" max="2100" required class="schmal"></div>
+    <div class="filter-item"><label>Anspruch *</label><input type="text" name="anspruch_tage" required placeholder="30" class="schmal"></div>
+    <div class="filter-item"><label>Übertrag Vorjahr</label><input type="text" name="uebertrag_tage" placeholder="0" class="schmal"></div>
+    {{ knoepfe() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+<h2 class="abschnitt-titel"><span>Urlaubskonten {{ jahr }} ({{ konten | length }})</span></h2>
+{% if not konten %}<p class="leer">Für {{ jahr }} sind keine Urlaubsansprüche eingetragen.</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>Anspruch</th><th>Übertrag</th><th>Gesamt</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<tbody>{% for k in konten %}
+<tr><td class="zahl">{{ k.user_id }}</td><td>{{ k.name or '?' }}</td><td class="zahl">{{ k.anspruch_tage }}</td><td class="zahl">{{ k.uebertrag_tage }}</td><td class="zahl">{{ k.anspruch_tage + k.uebertrag_tage }}</td>
+{% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-urlaub" data-fuellen='{{ {"user_id": k.user_id, "jahr": k.jahr, "anspruch_tage": k.anspruch_tage | string, "uebertrag_tage": k.uebertrag_tage | string} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p class="fuss">Genommene Tage und Resturlaub erscheinen, sobald Abwesenheiten eingetragen werden können (Schritt 3).</p>
+{% endif %}
+
+{# ================================================================ Spur #}
+<h2 class="abschnitt-titel"><span>Letzte Änderungen</span></h2>
+{% if not spur %}<p class="leer">Noch keine Änderungen.</p>{% else %}
+<div class="table-wrap"><table class="spur">
+<thead><tr><th>Zeit</th><th>Bearbeiter</th><th>Eintrag</th><th>Aktion</th><th>vorher</th><th>nachher</th><th>Begründung</th></tr></thead>
+<tbody>{% for s in spur %}
+<tr><td>{{ s.geaendert_am | zeit }}</td><td>{{ s.bearbeiter or '?' }}</td><td>{{ s.tabelle }} {{ s.objekt }}</td><td>{{ s.aktion }}</td>
+<td class="json">{{ s.alt or '' }}</td><td class="json">{{ s.neu or '' }}</td><td>{{ s.begruendung }}</td></tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}
