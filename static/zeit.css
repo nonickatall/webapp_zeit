@@ -169,3 +169,22 @@ details.anlegen[open] > summary { background: #6c757d; }
 .filter-item input.breit-lesen { width: 320px; background: #f4f6f8; }
 form.bearbeiten { outline: 2px solid #f0ad4e; }
 table.spur td.json { font-family: monospace; font-size: 11px; color: #555; max-width: 360px; word-break: break-all; }
+/* Monatsuebersicht (Umbau Schritt 2) */
+table.monat td { padding-top: 2px; padding-bottom: 2px; }
+table.monat tr.frei td { background: #eef4ee; }
+table.monat tr.frei td.tag { color: #c62828; }
+table.monat tr.heute td { background: #fff8e1; font-weight: bold; }
+table.monat tr.zukunft td { color: #9e9e9e; }
+table.monat tfoot th { background: #e8ecf0; color: #2c3e50; text-align: right; padding: 4px 8px; }
+table.monat tfoot th:last-child { text-align: left; font-weight: normal; }
+tr.klickbar { cursor: pointer; }
+tr.klickbar:hover td { background: #e3f0ff; }
+span.minus { color: #c62828; } span.plus { color: #2e7d32; }
+span.warnung { display: inline-block; min-width: 14px; padding: 0 3px; border-radius: 3px; background: #c62828; color: #fff; font-weight: bold; text-align: center; }
+span.abw { display: inline-block; padding: 0 4px; border-radius: 3px; color: #000; font-size: 11px; font-weight: bold; }
+@media print {
+    nav.reiter, .kein-druck, .titel-hilfe, #hilfe-fenster, #hilfe-overlay { display: none !important; }
+    .page { padding: 0; }
+    table.monat td, table.monat th { font-size: 10px; }
+    tr.klickbar:hover td { background: inherit; }
+}

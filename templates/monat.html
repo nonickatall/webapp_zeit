@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titel %}Monatsübersicht{% if ma %} – {{ ma.name }}{% endif %}{% endblock %}
+{% block inhalt %}
+{% macro saldo(m) %}{% if m is none %}{% else %}<span class="{{ 'minus' if m < 0 else 'plus' if m > 0 }}">{{ '+' if m > 0 }}{{ m | dauer }}</span>{% endif %}{% endmacro %}
+
+<form method="get" action="{{ url_for('monat') }}" class="filter-zeile kein-druck">
+    <div class="filter-item"><label for="f_ma">Mitarbeiter</label>
+        <select id="f_ma" name="user" onchange="this.form.submit()">
+            <option value="">– Übersicht aller –</option>
+            {% for x in mitarbeiter_liste %}<option value="{{ x.id }}" {{ 'selected' if uid == x.id }}>{{ x.name | mitarbeiter(x.id) }}</option>{% endfor %}
+        </select></div>
+    <div class="filter-item"><label for="f_monat">Monat</label><input id="f_monat" type="month" name="monat" value="{{ monat }}" onchange="this.form.submit()"></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('monat', user=uid, monat=vor) }}">◀ Monat</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('monat', user=uid, monat=nach) }}">Monat ▶</a></div>
+    {% if ma %}
+    <div class="filter-item"><label>&nbsp;</label>{% if vorheriger %}<a class="btn-filter-set" href="{{ url_for('monat', user=vorheriger, monat=monat) }}">◀ Mitarbeiter</a>{% endif %}</div>
+    <div class="filter-item"><label>&nbsp;</label>{% if naechster %}<a class="btn-filter-set" href="{{ url_for('monat', user=naechster, monat=monat) }}">Mitarbeiter ▶</a>{% endif %}</div>
+    {% endif %}
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv" onclick="window.print()">Drucken</button></div>
+</form>
+
+{% if ma %}
+{# ================================================================ ein Mitarbeiter #}
+<h2 class="abschnitt-titel"><span>{{ ma.name }} ({{ ma.id }}) – {{ monat_text }}</span>
+    <span class="zusatz">Saldo Vormonat: {% if summe.saldo_vormonat is none %}– (kein Startsaldo){% else %}{{ '+' if summe.saldo_vormonat > 0 }}{{ summe.saldo_vormonat | dauer }}{% endif %}</span></h2>
+<div class="table-wrap"><table class="monat">
+<thead><tr><th>Tag</th><th>WT</th><th>TP</th><th>Beginn</th><th title="mehr als ein Kommen/Gehen">&gt;2</th><th>Ende</th><th title="bitte prüfen">!</th>
+<th>Soll</th><th>Ist</th><th>TSaldo</th><th>Saldo</th><th>Abw</th><th>Bemerkung</th></tr></thead>
+<tbody>{% for z in zeilen %}
+<tr class="{{ 'frei' if z.wochenende or z.feiertag }} {{ 'heute' if z.datum == heute }} {{ 'zukunft' if z.zukunft }} klickbar"
+    data-href="{{ url_for('datensaetze', user=ma.id, von=z.datum.isoformat(), bis=z.datum.isoformat()) }}" title="Datensätze dieses Tages">
+<td class="zahl tag">{{ z.datum.strftime('%d') }}</td><td class="tag">{{ z.wt }}</td>
+<td>{% if z.tp %}<span class="farbfeld" style="background: {{ z.tp.farbe }}"></span> {{ z.tp.nr }}{% else %}<span class="notiz">kein Plan</span>{% endif %}</td>
+<td class="zahl">{{ z.beginn.strftime('%H:%M') if z.beginn else '' }}</td>
+<td>{{ '●' if z.mehr }}</td>
+<td class="zahl">{{ z.ende.strftime('%H:%M') if z.ende else ('läuft' if z.laeuft else '') }}</td>
+<td>{% if z.warnung %}<span class="warnung" title="{{ z.warnung | join(', ') }}">!</span>{% endif %}</td>
+<td class="zahl">{{ z.soll | dauer if z.soll else '' }}</td>
+<td class="zahl">{{ z.ist | dauer if z.ist is not none and (z.ist or z.soll) else '' }}</td>
+<td class="zahl">{{ saldo(z.tsaldo) if z.tsaldo is not none and (z.soll or z.ist) else '' }}</td>
+<td class="zahl">{{ saldo(z.saldo) }}{% if z.saldo_neu %} <span class="notiz" title="Startsaldo">S</span>{% endif %}</td>
+<td>{% for a in z.abw %}<span class="abw" style="background: {{ a.farbe }}" title="{{ a.name }}">{{ a.kuerzel }}</span> {{ a.minuten | dauer }}{% if a.umfang == 'halb' %} ½{% endif %} {% endfor %}</td>
+<td class="notiz">{{ z.feiertag or '' }}{% if z.warnung %}{{ ' · ' if z.feiertag }}{{ z.warnung | join(', ') }}{% endif %}</td>
+</tr>
+{% endfor %}</tbody>
+<tfoot><tr><th colspan="7">Summe bis heute</th><th class="zahl">{{ summe.soll | dauer }}</th><th class="zahl">{{ summe.ist | dauer }}</th>
+<th class="zahl">{{ saldo(summe.tsaldo) }}</th><th class="zahl">{{ saldo(summe.saldo_ende) }}</th>
+<th colspan="2">davon Arbeit {{ summe.arbeit | dauer }}, Gutschrift {{ summe.gutschrift | dauer }} · Soll ganzer Monat {{ summe.soll_monat | dauer }}</th></tr></tfoot>
+</table></div>
+{% if summe.warnungen %}<p class="fuss"><span class="warnung">!</span> {{ summe.warnungen }} Tag(e) bitte prüfen – Klick auf den Tag zeigt die Datensätze.</p>{% endif %}
+{% if summe.saldo_vormonat is none %}<p class="fuss">Ohne Startsaldo wird kein laufender Saldo gerechnet (Stammdaten → Startsalden).</p>{% endif %}
+<p class="fuss">Ist = Arbeit (netto) + Gutschrift (Feiertag, Abwesenheit). TSaldo = Ist − Soll; heute erst, wenn niemand mehr eingebucht ist.</p>
+
+{% else %}
+{# ================================================================ alle #}
+<h2 class="abschnitt-titel"><span>Alle Mitarbeiter mit Wochenplan – {{ monat_text }} ({{ uebersicht | length }})</span><span class="zusatz">Summen bis heute</span></h2>
+{% if not uebersicht %}<p class="leer">Noch keinem Mitarbeiter ist ein Wochenplan zugeordnet (Stammdaten → Zuordnung).</p>{% else %}
+<div class="table-wrap"><table>
+<thead><tr><th>ID</th><th>Mitarbeiter</th><th>Saldo Vormonat</th><th>Soll</th><th>Arbeit</th><th>Gutschrift</th><th>Ist</th><th>Saldo Monat</th><th>Saldo</th><th>!</th></tr></thead>
+<tbody>{% for x in uebersicht %}
+<tr class="klickbar" data-href="{{ url_for('monat', user=x.id, monat=monat) }}">
+<td class="zahl">{{ x.id }}</td><td>{{ x.name }}</td><td class="zahl">{{ saldo(x.saldo_vormonat) if x.saldo_vormonat is not none else '–' }}</td>
+<td class="zahl">{{ x.soll | dauer }}</td><td class="zahl">{{ x.arbeit | dauer }}</td><td class="zahl">{{ x.gutschrift | dauer }}</td>
+<td class="zahl">{{ x.ist | dauer }}</td><td class="zahl">{{ saldo(x.tsaldo) }}</td><td class="zahl">{{ saldo(x.saldo_ende) if x.saldo_ende is not none else '–' }}</td>
+<td>{% if x.warnungen %}<span class="warnung">{{ x.warnungen }}</span>{% endif %}</td></tr>
+{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p class="fuss">Klick auf eine Zeile öffnet die Monatsübersicht des Mitarbeiters. „!“ = Tage, die geprüft werden sollten.</p>
+{% endif %}
+{% endblock %}

@@ -23,6 +23,7 @@ from zeit_auth import MIN_PASSWORT, AuthDB
 from zeit_db import ZeitDB, lade_konfig, ortszeit, zeitraum_utc
 from zeit_hilfe import markdown_html
 import zeit_mqtt
+import zeit_rechnung
 
 cfg = lade_konfig()
 logging.basicConfig(filename=cfg["log_datei"], level=logging.INFO,
@@ -499,6 +500,7 @@ STAMMDATEN_FELDER = {
     "feiertag": ("datum", "name", "bundesland", "halb", "aktiv"),
     "saldo_start": ("user_id", "stichtag", "minuten", "aktiv"),
     "urlaubskonto": ("user_id", "jahr", "anspruch_tage", "uebertrag_tage"),
+    "neu_berechnen": ("user_id", "ab"),
 }
 # Felder, die als Stunden "h:mm" (auch "-26:44") eingegeben werden duerfen -> Minuten
 STUNDEN_FELDER = {"soll_minuten", "pause1_ab_minuten", "pause2_ab_minuten", "minuten"}
@@ -753,6 +755,34 @@ def _monat():
     except ValueError:
         pass
     return heute.year, heute.month
+
+
+@app.route("/zeit/monat")
+def monat():
+    """Monatsuebersicht (Umbau Schritt 2): ohne Mitarbeiter alle mit Wochenplan, mit Mitarbeiter je Tag."""
+    j, m = _monat()
+    heute = _heute()
+    uid = _int("user")
+    r = zeit_rechnung.Rechnung(db)
+    ma = db.plan_mitarbeiter()
+    vor = f"{j - (m == 1):04d}-{(m - 2) % 12 + 1:02d}"
+    nach = f"{j + (m == 12):04d}-{m % 12 + 1:02d}"
+    ctx = {"monat": f"{j:04d}-{m:02d}", "monat_text": f"{zeit_rechnung.MONATE[m - 1]} {j}", "vor": vor,
+           "nach": nach, "mitarbeiter_liste": ma, "uid": uid, "heute": heute, "seite": "monat",
+           "hilfe": "Monatsuebersicht"}
+    if uid:
+        zeilen, summe = r.monat(uid, j, m, heute)
+        ids = [x["id"] for x in ma]
+        i = ids.index(uid) if uid in ids else None
+        mu = db.eins(f"SELECT id, `user` AS name FROM {db.m}.`user` WHERE id = %s", (uid,))
+        return render_template("monat.html", zeilen=zeilen, summe=summe, ma=mu,
+                               vorheriger=ma[i - 1]["id"] if i else None,
+                               naechster=ma[i + 1]["id"] if i is not None and i + 1 < len(ma) else None, **ctx)
+    uebersicht = []
+    for x in ma:
+        _, summe = r.monat(x["id"], j, m, heute)
+        uebersicht.append(dict(x, **summe))
+    return render_template("monat.html", uebersicht=uebersicht, **ctx)
 
 
 @app.route("/zeit/summen")

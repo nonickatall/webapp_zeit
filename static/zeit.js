@@ -202,7 +202,8 @@ Array.prototype.forEach.call(document.querySelectorAll('form.korrektur-form'), f
                                     window.location.href = '/zeit/datensatz/' + encodeURIComponent(a.zeiterfassung_id);
                                 }, 1500);
                             } else {
-                                zeige((form.getAttribute('data-ok') || 'Korrektur gespeichert') + ' – ' + a.uhrzeit + ' Uhr', 'ok');
+                                zeige((form.getAttribute('data-ok') || 'Korrektur gespeichert') + ' – ' + a.uhrzeit + ' Uhr'
+                                     + (a.objekt && /Tage neu/.test(a.objekt) ? ' – ' + a.objekt.replace(/^.*\(|\)$/g, '') : ''), 'ok');
                                 setTimeout(function () { window.location.reload(); }, 1500);
                             }
                         } else {
@@ -467,3 +468,11 @@ Array.prototype.forEach.call(document.querySelectorAll('form.filter-zeile:not(.f
         });
     });
 })();
+
+/* Tabellenzeilen mit data-href sind klickbar (Monatsuebersicht: Tag -> Datensaetze, Mitarbeiter -> Monat). */
+Array.prototype.forEach.call(document.querySelectorAll('tr[data-href]'), function (tr) {
+    tr.addEventListener('click', function (e) {
+        if (e.target.closest('a, button, input, select')) return;
+        window.location.href = tr.getAttribute('data-href');
+    });
+});

@@ -146,6 +146,21 @@
 </form>
 <p class="ergebnis" hidden></p>
 {% endif %}
+{% if darf %}
+<h2 class="abschnitt-titel"><span>Pausen neu berechnen</span><span class="zusatz">bestimmt Pause und „zählt ab“ ab dem Tag neu nach dem geltenden Plan, mit Spur; nach Zuordnen und Planänderungen geschieht das automatisch</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url }}" data-ok="Neu berechnet">
+    <input type="hidden" name="art" value="neu_berechnen">
+    <div class="filter-item"><label>Mitarbeiter</label>
+        <select name="user_id"><option value="">alle mit Wochenplan</option>
+            {% for m in alle_user %}<option value="{{ m.id }}">{{ m.name | mitarbeiter(m.id) }}</option>{% endfor %}
+        </select></div>
+    <div class="filter-item"><label>ab *</label><input type="date" name="ab" value="{{ heute.replace(day=1).isoformat() }}" max="{{ heute.isoformat() }}" required></div>
+    <div class="filter-item breit"><label>Begründung</label><input type="text" name="begruendung" maxlength="255" placeholder="z.B. Umstellung auf Tagespläne"></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">Neu berechnen</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
 <h2 class="abschnitt-titel"><span>Zuordnungen ({{ zuordnungen | length }})</span></h2>
 {% if not zuordnungen %}<p class="leer">Keine Zuordnungen.</p>{% else %}
 <div class="table-wrap"><table>

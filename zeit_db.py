@@ -327,6 +327,12 @@ class ZeitDB:
             f"LEFT JOIN {self.m}.`user` u ON u.id = s.geaendert_von "
             f"WHERE s.tabelle IN ({platz}) ORDER BY s.id DESC LIMIT %s", (*tabellen, anzahl))
 
+    def plan_mitarbeiter(self):
+        """Mitarbeiter mit (nicht aufgehobener) Wochenplan-Zuordnung -- Auswahl der Monatsuebersicht."""
+        return self.abfrage(
+            f"SELECT DISTINCT u.id, u.`user` AS name, u.status FROM {self.z}.user_wochenplan z "
+            f"JOIN {self.m}.`user` u ON u.id = z.user_id WHERE z.aufgehoben_am IS NULL ORDER BY u.`user`")
+
     # ---------------- 6. Monatssummen
     def summen(self, jahr, monat):
         von = datetime.date(jahr, monat, 1)
