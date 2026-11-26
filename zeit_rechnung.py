@@ -14,6 +14,7 @@ import datetime
 
 from zeit_db import ortszeit, tag_grenzen_utc
 
+FEIERTAG_KUERZEL = "FT"
 WOCHENTAGE = ("mo", "di", "mi", "do", "fr", "sa", "so")
 WT_NAMEN = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 MONATE = ("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober",
@@ -36,6 +37,9 @@ class Rechnung:
             f"SELECT id, nr, name, farbe, frei, soll_minuten FROM {z}.tagesplan")}
         self.wp = {r["id"]: r for r in db.abfrage(f"SELECT * FROM {z}.wochenplan")}
         self.arten = {r["id"]: r for r in db.abfrage(f"SELECT * FROM {z}.abwesenheitsart")}
+        # Anzeige der Feiertage: feste Abwesenheitsart "FT" (Farbe in Stammdaten -> Abwesenheitsarten einstellbar)
+        ft = next((a for a in self.arten.values() if a["kuerzel"] == FEIERTAG_KUERZEL and a["aktiv"]), None)
+        self.ft_farbe = ft["farbe"] if ft else "#7cb342"
 
     # ---------------- Daten eines Mitarbeiters
     def _laden(self, uid, von, bis):
@@ -91,7 +95,7 @@ class Rechnung:
             g = s // 2 if f["halb"] else s
             zeile["gutschrift"] += g
             if g:
-                zeile["abw"].append({"kuerzel": "FT", "name": f["name"], "farbe": "#7cb342", "minuten": g})
+                zeile["abw"].append({"kuerzel": "FT", "name": f["name"], "farbe": self.ft_farbe, "minuten": g})
         for a in d["abwesenheiten"].get(tag, []):
             art = self.arten.get(a["art_id"]) or {"kuerzel": "?", "name": "?", "farbe": "#999999", "gutschrift": "soll"}
             if art["gutschrift"] == "keine":

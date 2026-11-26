@@ -839,7 +839,7 @@ def tag():
     return render_template(
         "tag.html", ma=mu, datum=datum, z=z, summe=summe, saetze=saetze,
         abwesenheiten=db.abwesenheiten_tag(uid, datum), abweichung=db.abweichung_tag(uid, datum),
-        arten=[a for a in db.abwesenheitsarten() if a["aktiv"]],
+        arten=[a for a in db.abwesenheitsarten() if a["aktiv"] and a["kuerzel"] != zeit_rechnung.FEIERTAG_KUERZEL],
         tagesplaene=[t for t in db.tagesplaene() if t["aktiv"]],
         urlaub=db.urlaub_rest(uid, datum.year), gruende=TAG_GRUENDE, heute=heute,
         vortag=datum - datetime.timedelta(days=1), folgetag=datum + datetime.timedelta(days=1),

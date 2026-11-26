@@ -50,8 +50,8 @@
     <div class="filter-item"><label>Kernzeit bis</label><input type="text" class="uhrzeit" name="kernzeit_ende" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5"></div>
     <div class="filter-item"><label>Pause 1 (min)</label><input type="number" name="pause1_minuten" min="0" max="240" value="30" class="schmal"></div>
     <div class="filter-item"><label>ab</label><input type="text" name="pause1_ab_minuten" value="6:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
-    <div class="filter-item"><label>Pause 2 (min)</label><input type="number" name="pause2_minuten" min="0" max="240" value="15" class="schmal"></div>
-    <div class="filter-item"><label>ab</label><input type="text" name="pause2_ab_minuten" value="9:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
+    <div class="filter-item"><label>Pause 2 (min)</label><input type="number" name="pause2_minuten" min="0" max="240" value="" class="schmal"></div>
+    <div class="filter-item"><label>ab</label><input type="text" name="pause2_ab_minuten" value="" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
     {{ haken('aktiv', 'aktiv', True) }}
     {{ knoepfe() }}
 </form>
@@ -199,11 +199,12 @@
 <thead><tr><th>Kürzel</th><th></th><th>Name</th><th>Gutschrift</th><th>Urlaub</th><th>Reihenfolge</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for a in arten %}
 <tr class="{{ 'abgeloest' if not a.aktiv }}"><td>{{ a.kuerzel }}</td><td>{{ farbfeld(a.farbe) }}</td><td>{{ a.name }}</td>
-<td>{{ 'Soll des Tages' if a.gutschrift == 'soll' else 'keine' }}</td><td>{{ ja(a.urlaub) }}</td><td class="zahl">{{ a.reihenfolge }}</td><td>{{ ja(a.aktiv) }}</td>
+<td>{% if a.kuerzel == 'FT' %}<span class="notiz">automatisch aus den Feiertagen</span>{% else %}{{ 'Soll des Tages' if a.gutschrift == 'soll' else 'keine' }}{% endif %}</td><td>{{ ja(a.urlaub) }}</td><td class="zahl">{{ a.reihenfolge }}</td><td>{{ ja(a.aktiv) }}</td>
 {% if darf %}<td><button type="button" class="btn-kopieren" data-form="form-art" data-fuellen='{{ {"id": a.id, "kuerzel": a.kuerzel, "name": a.name, "farbe": a.farbe, "gutschrift": a.gutschrift, "urlaub": a.urlaub, "reihenfolge": a.reihenfolge, "aktiv": a.aktiv} | tojson }}'>Bearbeiten</button></td>{% endif %}</tr>
 {% endfor %}</tbody>
 </table></div>
-<p class="fuss">Berufsschule ist keine Abwesenheit, sondern ein Tagesplan. Eingetragen werden Abwesenheiten später direkt am Tag der Monatsübersicht.</p>
+<p class="fuss">Berufsschule ist keine Abwesenheit, sondern ein Tagesplan. Eingetragen werden Abwesenheiten direkt am Tag (Klick in der Monatsübersicht).
+„FT Feiertag“ ist fest: Name und Farbe bestimmen nur die Anzeige der Feiertage; Kürzel, Gutschrift und Urlaub sind nicht änderbar, eintragen lässt sich FT nicht.</p>
 {% endif %}
 
 {# ================================================================ Feiertage #}
