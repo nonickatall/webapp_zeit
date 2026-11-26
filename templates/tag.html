@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block titel %}Tag {{ datum.strftime('%d.%m.%Y') }} – {{ ma.name }}{% endblock %}
+{% block inhalt %}
+{% set zeit_muster = "([01]?[0-9]|2[0-3]):?[0-5][0-9]|([01]?[0-9]|2[0-3])" %}
+{% set wt = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] %}
+{% macro saldo(m) %}{% if m is none %}–{% else %}<span class="{{ 'minus' if m < 0 else 'plus' if m > 0 }}">{{ '+' if m > 0 }}{{ m | dauer }}</span>{% endif %}{% endmacro %}
+{% macro begruendung(pflicht=True) %}
+    <div class="filter-item breit"><label>Begründung{{ ' *' if pflicht }}</label>
+        <input type="text" name="begruendung" list="gruende" maxlength="255" {{ 'required minlength=3' if pflicht }} placeholder="auswählen oder eintippen"></div>
+{% endmacro %}
+{% macro knopf(text="Speichern") %}
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-set">{{ text }}</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+{% endmacro %}
+<datalist id="gruende">{% for g_ in gruende %}<option value="{{ g_ }}">{% endfor %}</datalist>
+
+<div class="filter-zeile kein-druck">
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('monat', user=ma.id, monat=datum.strftime('%Y-%m')) }}">↑ Monatsübersicht</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('tag', user=ma.id, datum=vortag.isoformat()) }}">◀ Vortag</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('tag', user=ma.id, datum=folgetag.isoformat()) }}">Folgetag ▶</a></div>
+    {% if naechster_pruefen %}<div class="filter-item"><label>&nbsp;</label><a class="btn-filter-reset" href="{{ url_for('tag', user=ma.id, datum=naechster_pruefen.isoformat()) }}">nächster „!“-Tag ({{ naechster_pruefen.strftime('%d.%m.') }}) ▶</a></div>{% endif %}
+</div>
+
+{# ---------------------------------------------------------------- Kopf: Rechnung des Tages #}
+<h2 class="abschnitt-titel"><span>{{ ma.name }} ({{ ma.id }}) – {{ wt[datum.weekday()] }}, {{ datum.strftime('%d.%m.%Y') }}</span>
+    <span class="zusatz">{% if z.feiertag %}Feiertag: {{ z.feiertag }}{% endif %}</span></h2>
+<div class="table-wrap"><table class="eigenschaften tag-kopf">
+<tr><th>Tagesplan</th><td>{% if z.tp %}<span class="farbfeld" style="background: {{ z.tp.farbe }}"></span> {{ z.tp.nr }} {{ z.tp.name }}{% if abweichung %} <span class="marke gelb">für diesen Tag geändert</span>{% endif %}{% else %}<span class="marke rot">kein Wochenplan zugeordnet</span>{% endif %}</td></tr>
+<tr><th>Soll</th><td>{{ z.soll | dauer if z.soll is not none else '–' }}</td></tr>
+<tr><th>Ist</th><td>{{ z.ist | dauer if z.ist is not none else '–' }} <span class="notiz">(Arbeit {{ z.arbeit | dauer }} + Gutschrift {{ z.gutschrift | dauer }})</span></td></tr>
+<tr><th>Tagessaldo</th><td>{{ saldo(z.tsaldo) }}{% if z.laeuft %} <span class="notiz">läuft noch</span>{% endif %}</td></tr>
+<tr><th>Saldo</th><td>{{ saldo(z.saldo) }}</td></tr>
+{% if z.warnung %}<tr><th>Bitte prüfen</th><td><span class="warnung">!</span> {{ z.warnung | join(', ') }}</td></tr>{% endif %}
+</table></div>
+
+{# ---------------------------------------------------------------- Datensätze #}
+<h2 class="abschnitt-titel"><span>Kommen / Gehen ({{ saetze | length }})</span><span class="zusatz">Uhrzeit z.B. „715“ oder „7:15“, Enter speichert</span></h2>
+{% if not saetze %}<p class="leer">Keine Datensätze an diesem Tag.</p>{% endif %}
+{% for s in saetze %}
+<div class="tag-satz">
+<div class="tag-satz-kopf"><a href="{{ url_for('datensatz', ze_id=s.id) }}">Datensatz {{ s.id }}</a>
+    {% if s.status == 'offen' %}<span class="marke blau">anwesend</span>{% elif s.status == 'automatisch_beendet' %}<span class="marke rot">Gehen fehlt</span>{% endif %}
+    {% if s.klaeren %}<span class="marke gelb">zu klären: {{ s.klaerung_notiz }}</span>{% endif %}
+    <span class="notiz">{{ s.kommen | zeit('%H:%M') }} – {{ s.gehen | zeit('%H:%M') if s.status == 'abgeschlossen' else '…' }}
+    {% if s.netto_minuten is not none %}· netto {{ s.netto_minuten | dauer }} (Pause {{ s.pause_minuten or 0 }} min){% endif %}</span></div>
+{% if darf_korr and s.art_korr %}
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('korrektur_neu', ze_id=s.id) }}"
+      data-ok="{{ 'Gehen nachgetragen' if s.art_korr == 'gehen_nachtragen' else 'Zeiten geändert' }}">
+    <input type="hidden" name="art" value="{{ s.art_korr }}">
+    <input type="hidden" name="stand_kommen" value="{{ s.stand_kommen }}"><input type="hidden" name="stand_gehen" value="{{ s.stand_gehen }}"><input type="hidden" name="stand_status" value="{{ s.status }}">
+    {% if s.art_korr == 'stempelzeit' %}
+    <input type="hidden" name="kommen_datum" value="{{ datum.isoformat() }}">
+    <div class="filter-item"><label>Kommen</label><input type="text" class="uhrzeit" name="kommen_uhrzeit" value="{{ s.kommen | zeit('%H:%M') }}" pattern="{{ zeit_muster }}" maxlength="5" inputmode="numeric" required></div>
+    {% endif %}
+    <input type="hidden" name="gehen_datum" value="{{ (s.gehen | zeit('%Y-%m-%d')) if s.status == 'abgeschlossen' else datum.isoformat() }}">
+    <div class="filter-item"><label>Gehen</label><input type="text" class="uhrzeit" name="gehen_uhrzeit" value="{{ s.gehen | zeit('%H:%M') if s.status == 'abgeschlossen' else '' }}" pattern="{{ zeit_muster }}" maxlength="5" inputmode="numeric" required {{ 'autofocus' if s.status == 'automatisch_beendet' }}></div>
+    {{ begruendung() }}
+    {{ knopf() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+</div>
+{% endfor %}
+{% if darf_korr and datum <= heute %}
+<details class="tag-neu"><summary>+ Datensatz anlegen (Buchung vergessen)</summary>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('datensatz_neu') }}" data-ok="Datensatz angelegt">
+    <input type="hidden" name="user_id" value="{{ ma.id }}">
+    <input type="hidden" name="kommen_datum" value="{{ datum.isoformat() }}"><input type="hidden" name="gehen_datum" value="{{ datum.isoformat() }}">
+    <div class="filter-item"><label>Kommen *</label><input type="text" class="uhrzeit" name="kommen_uhrzeit" pattern="{{ zeit_muster }}" maxlength="5" inputmode="numeric" required></div>
+    <div class="filter-item"><label>Gehen *</label><input type="text" class="uhrzeit" name="gehen_uhrzeit" pattern="{{ zeit_muster }}" maxlength="5" inputmode="numeric" required></div>
+    {{ begruendung() }}
+    {{ knopf("Anlegen") }}
+</form>
+<p class="ergebnis" hidden></p>
+</details>
+{% endif %}
+
+{# ---------------------------------------------------------------- Abwesenheit #}
+<h2 class="abschnitt-titel"><span>Abwesenheit</span>
+    <span class="zusatz">{% if urlaub.konto %}Urlaub {{ datum.year }}: {{ '%g' % urlaub.genommen }} von {{ '%g' % urlaub.gesamt }} Tagen genommen, Rest {{ '%g' % urlaub.rest }}{% else %}Urlaub {{ datum.year }}: {{ '%g' % urlaub.genommen }} Tage genommen, kein Urlaubskonto{% endif %}</span></h2>
+{% for a in abwesenheiten %}
+<div class="tag-satz"><div class="tag-satz-kopf"><span class="abw" style="background: {{ a.farbe }}">{{ a.kuerzel }}</span> {{ a.art_name }}
+    · {{ {'ganz': 'ganzer Tag', 'halb': 'halber Tag'}.get(a.umfang) or ((a.minuten | dauer) ~ ' h') }}
+    {% if a.notiz %}· {{ a.notiz }}{% endif %} <span class="notiz">({{ a.ersteller or '?' }}, {{ a.erstellt_am | zeit }})</span></div>
+{% if darf_stamm %}
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('stammdaten_auftrag') }}" data-ok="Abwesenheit aufgehoben">
+    <input type="hidden" name="art" value="abwesenheit_aufheben"><input type="hidden" name="id" value="{{ a.id }}">
+    {{ begruendung() }}
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-reset">Aufheben</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+</div>
+{% endfor %}
+{% if darf_stamm %}
+<form class="filter-zeile formular korrektur-form abw-form" autocomplete="off" data-url="{{ url_for('stammdaten_auftrag') }}" data-ok="Abwesenheit eingetragen"
+      data-urlaub-rest="{{ urlaub.rest if urlaub.konto else '' }}">
+    <input type="hidden" name="art" value="abwesenheit"><input type="hidden" name="user_id" value="{{ ma.id }}">
+    <input type="hidden" name="von" value="{{ datum.isoformat() }}">
+    <div class="filter-item"><label>Art *</label><select name="art_id" required>
+        {% for a in arten %}<option value="{{ a.id }}" data-urlaub="{{ a.urlaub }}">{{ a.kuerzel }} – {{ a.name }}</option>{% endfor %}</select></div>
+    <div class="filter-item"><label>Umfang</label><select name="umfang">
+        <option value="ganz">ganzer Tag</option><option value="halb">halber Tag</option><option value="stunden">Stunden</option></select></div>
+    <div class="filter-item abw-stunden" hidden><label>Stunden *</label><input type="text" name="minuten" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item abw-bis"><label>bis (Zeitraum)</label><input type="date" name="bis" value="{{ datum.isoformat() }}" min="{{ datum.isoformat() }}"></div>
+    <div class="filter-item breit"><label>Notiz</label><input type="text" name="notiz" maxlength="255" list="gruende" placeholder="optional"></div>
+    {{ knopf("Eintragen") }}
+</form>
+<p class="ergebnis" hidden></p>
+<p class="fuss">Ein Zeitraum („bis“) trägt nur Arbeitstage ein (Wochenenden, freie Tage und Feiertage werden übersprungen). Halbe Tage und Stunden nur für einen einzelnen Tag.</p>
+{% endif %}
+
+{# ---------------------------------------------------------------- Tagesplan #}
+{% if darf_stamm %}
+<h2 class="abschnitt-titel"><span>Tagesplan nur für diesen Tag ändern</span><span class="zusatz">z.B. Berufsschule an einem anderen Tag; Pause und Soll des Tages richten sich danach</span></h2>
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('stammdaten_auftrag') }}" data-ok="Tagesplan des Tages geändert">
+    <input type="hidden" name="art" value="tag_abweichung"><input type="hidden" name="user_id" value="{{ ma.id }}"><input type="hidden" name="datum" value="{{ datum.isoformat() }}">
+    <div class="filter-item"><label>Tagesplan *</label><select name="tagesplan_id" required>
+        {% for t in tagesplaene %}<option value="{{ t.id }}" {{ 'selected' if z.tp and z.tp.id == t.id }}>{{ t.nr }} {{ t.name }} ({{ t.soll_minuten | dauer }})</option>{% endfor %}</select></div>
+    {{ begruendung() }}
+    {{ knopf() }}
+</form>
+<p class="ergebnis" hidden></p>
+{% if abweichung %}
+<form class="filter-zeile formular korrektur-form" autocomplete="off" data-url="{{ url_for('stammdaten_auftrag') }}" data-ok="Wieder Plan laut Wochenplan">
+    <input type="hidden" name="art" value="tag_abweichung_aufheben"><input type="hidden" name="user_id" value="{{ ma.id }}"><input type="hidden" name="datum" value="{{ datum.isoformat() }}">
+    <div class="filter-item"><label>Abweichung</label><input type="text" readonly class="breit-lesen" value="{{ abweichung.nr }} {{ abweichung.name }} – {{ abweichung.begruendung }}"></div>
+    {{ begruendung() }}
+    <div class="filter-item"><label>&nbsp;</label><button type="submit" class="btn-filter-reset">Zurück auf Wochenplan</button></div>
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv erneut" hidden>Erneut versuchen</button></div>
+</form>
+<p class="ergebnis" hidden></p>
+{% endif %}
+{% endif %}
+{% endblock %}

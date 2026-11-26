@@ -5,12 +5,12 @@
 <a class="btn-zurueck" href="{{ zurueck }}">← Zurück</a>
 <table class="eigenschaften">
 <tr><th>Kommen</th><td>{{ ze.kommen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
-{% if ze.zaehlt_ab %}<tr><th>Zählt ab</th><td>{{ ze.zaehlt_ab | zeit("%d.%m.%Y %H:%M") }} (Sollbeginn der Zeitregel)</td></tr>{% endif %}
+{% if ze.zaehlt_ab %}<tr><th>Zählt ab</th><td>{{ ze.zaehlt_ab | zeit("%d.%m.%Y %H:%M") }} (Sollbeginn{{ ' der Zeitregel' if ze.zeitregel_id else ' des Tagesplans' }})</td></tr>{% endif %}
 <tr><th>Gehen</th><td>{{ ze.gehen | zeit("%d.%m.%Y %H:%M:%S") }}</td></tr>
 <tr><th>Status</th><td>{{ ze.status }}{% if ze.korrigiert %} <span class="marke blau">korrigiert</span>{% endif %}{% if ze.klaeren %} <span class="marke gelb">klären</span>{% endif %}</td></tr>
 <tr><th>Brutto</th><td>{{ ze.minuten | dauer }}</td></tr>
 <tr><th>Pause</th><td>{{ ze.pause_minuten | dauer }}
-    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min{% if ze.regel_soll %}, Sollbeginn {{ ze.regel_soll }}{% endif %}, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}{% if ze.regel_begruendung %}, Begründung: {{ ze.regel_begruendung }}{% endif %}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
+    {% if ze.zeitregel_id %}(Zeitregel {{ ze.zeitregel_id }}: {{ ze.regel_pause }} min ab {{ ze.regel_pause_ab }} min{% if ze.regel_soll %}, Sollbeginn {{ ze.regel_soll }}{% endif %}, gültig ab {{ ze.regel_ab.strftime('%d.%m.%Y') if ze.regel_ab }}{% if ze.regel_begruendung %}, Begründung: {{ ze.regel_begruendung }}{% endif %}){% elif ze.tagesplan_id %}(Tagesplan {{ ze.tp_nr }} {{ ze.tp_name }}: {% if ze.tp_p1 %}{{ ze.tp_p1 }} min ab {{ ze.tp_ab1 | dauer }}{% else %}ohne Pause{% endif %}{% if ze.tp_p2 %}, +{{ ze.tp_p2 }} min ab {{ ze.tp_ab2 | dauer }}{% endif %}){% elif ze.status == 'abgeschlossen' %}<span class="marke rot">ohne Zeitregel</span>{% elif ze.status == 'automatisch_beendet' %}(keine Arbeitszeit, bis Gehen nachgetragen ist){% endif %}</td></tr>
 <tr><th>Korrektur</th><td>{{ ze.korrektur_minuten | dauer }}</td></tr>
 <tr><th>Netto</th><td>{{ ze.netto_minuten | dauer }}</td></tr>
 <tr><th>Manuell angelegt</th><td>{{ 'ja' if ze.manuell else 'nein' }}</td></tr>

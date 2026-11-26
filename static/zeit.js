@@ -476,3 +476,50 @@ Array.prototype.forEach.call(document.querySelectorAll('tr[data-href]'), functio
         window.location.href = tr.getAttribute('data-href');
     });
 });
+
+/* Uhrzeit schnell tippen: "715" -> 07:15, "7" -> 07:00, "7.15"/"7,15" -> 07:15. Beim Verlassen des Feldes und
+   VOR jedem Absenden (Capture-Phase, laeuft vor den Formular-Handlern). */
+(function () {
+    function normal(v) {
+        var t = (v || '').trim().replace(/[.,]/, ':');
+        var m = /^(\d{1,2}):?(\d{2})$/.exec(t) || /^(\d{1,2})()$/.exec(t);
+        if (!m) return v;
+        var h = parseInt(m[1], 10), min = m[2] ? parseInt(m[2], 10) : 0;
+        if (h > 23 || min > 59) return v;
+        return (h < 10 ? '0' : '') + h + ':' + (min < 10 ? '0' : '') + min;
+    }
+    function alle(form) {
+        Array.prototype.forEach.call(form.querySelectorAll('input.uhrzeit'), function (el) { el.value = normal(el.value); });
+    }
+    document.addEventListener('blur', function (e) {
+        if (e.target.matches && e.target.matches('input.uhrzeit')) e.target.value = normal(e.target.value);
+    }, true);
+    document.addEventListener('submit', function (e) { alle(e.target); }, true);
+})();
+
+/* Tagesfenster, Abwesenheit: Stunden-Feld nur bei Umfang "Stunden", "bis" nur bei ganzem Tag;
+   Warnung, wenn ein Urlaubszeitraum den Rest uebersteigt (nur Hinweis, gespeichert wird trotzdem). */
+Array.prototype.forEach.call(document.querySelectorAll('form.abw-form'), function (form) {
+    var umfang = form.querySelector('[name=umfang]'), stunden = form.querySelector('.abw-stunden'),
+        bisFeld = form.querySelector('.abw-bis'), bis = form.querySelector('[name=bis]'),
+        von = form.querySelector('[name=von]'), art = form.querySelector('[name=art_id]');
+    function anpassen() {
+        stunden.hidden = umfang.value !== 'stunden';
+        stunden.querySelector('input').required = umfang.value === 'stunden';
+        bisFeld.hidden = umfang.value !== 'ganz';
+        if (umfang.value !== 'ganz') bis.value = von.value;
+    }
+    umfang.addEventListener('change', anpassen);
+    anpassen();
+    form.addEventListener('submit', function (e) {
+        var rest = form.getAttribute('data-urlaub-rest');
+        var opt = art.options[art.selectedIndex];
+        if (rest === '' || !opt || opt.getAttribute('data-urlaub') !== '1') return;
+        var tage = umfang.value === 'halb' ? 0.5 : umfang.value === 'stunden' ? 0 :
+            Math.round((new Date(bis.value) - new Date(von.value)) / 86400000) + 1;
+        if (tage > parseFloat(rest) && !confirm('Resturlaub ' + rest + ' Tage, eingetragen werden bis zu ' + tage +
+                ' Kalendertage (nur Arbeitstage zählen). Trotzdem eintragen?')) {
+            e.preventDefault(); e.stopImmediatePropagation();
+        }
+    }, true);
+});

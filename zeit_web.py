@@ -21,6 +21,7 @@ from jinja2 import Undefined
 
 from zeit_auth import MIN_PASSWORT, AuthDB
 from zeit_db import ZeitDB, lade_konfig, ortszeit, zeitraum_utc
+from zeit_db import tag_grenzen_utc as zeit_db_tag_grenzen
 from zeit_hilfe import markdown_html
 import zeit_mqtt
 import zeit_rechnung
@@ -91,6 +92,16 @@ def vorlagen_werte():
 
 
 # ---------------------------------------------------------------- Anmeldung
+@app.before_request
+def db_sitzung():
+    db.sitzung_beginnen()
+
+
+@app.teardown_request
+def db_sitzung_ende(exc):
+    db.sitzung_ende()
+
+
 @app.before_request
 def anmeldung_pruefen():
     if request.endpoint in OEFFENTLICH:
@@ -347,7 +358,7 @@ def datensatz(ze_id):
             # Zeitregel zuordnen nur, wenn fuer den Tag keine Regel nach gueltig_ab gilt
             tag = ortszeit(ze["kommen"]).date()
             regeln = db.zeitregeln(ze["user_id"])
-            if not any(r["gueltig_ab"] <= tag for r in regeln):
+            if not ze.get("tagesplan_id") and not any(r["gueltig_ab"] <= tag for r in regeln):
                 korrektur["regeln"] = regeln
     darf_klaeren = db.hat_recht(g.mu["id"], RECHT_KLAEREN)
     return render_template("datensatz.html", d=d, korrektur=korrektur, darf_klaeren=darf_klaeren,
@@ -501,6 +512,10 @@ STAMMDATEN_FELDER = {
     "saldo_start": ("user_id", "stichtag", "minuten", "aktiv"),
     "urlaubskonto": ("user_id", "jahr", "anspruch_tage", "uebertrag_tage"),
     "neu_berechnen": ("user_id", "ab"),
+    "abwesenheit": ("user_id", "von", "bis", "art_id", "umfang", "minuten", "notiz"),
+    "abwesenheit_aufheben": ("id",),
+    "tag_abweichung": ("user_id", "datum", "tagesplan_id"),
+    "tag_abweichung_aufheben": ("user_id", "datum"),
 }
 # Felder, die als Stunden "h:mm" (auch "-26:44") eingegeben werden duerfen -> Minuten
 STUNDEN_FELDER = {"soll_minuten", "pause1_ab_minuten", "pause2_ab_minuten", "minuten"}
@@ -706,6 +721,9 @@ GRUND_TEXT = {
     "monat_abgeschlossen": "Der Monat ist bereits abgeschlossen.",
     "objekt_unbekannt": "Den Eintrag gibt es nicht (mehr).",
     "bereits_aufgehoben": "Der Eintrag ist schon aufgehoben.",
+    "art_unbekannt": "Die Abwesenheitsart fehlt oder ist nicht aktiv.",
+    "keine_arbeitstage": "Im Zeitraum gibt es keinen Arbeitstag ohne diese Abwesenheit.",
+    "zeitraum_nur_ganz": "Halbe Tage und Stunden nur für einen einzelnen Tag.",
     "mitarbeiter_unbekannt": "Der Mitarbeiter ist unbekannt oder gesperrt.",
     "begruendung_fehlt": "Die Begründung fehlt.",
     "bearbeiter_unbekannt": "Ihr Zugang konnte keinem aktiven Benutzer zugeordnet werden.",
@@ -783,6 +801,45 @@ def monat():
         _, summe = r.monat(x["id"], j, m, heute)
         uebersicht.append(dict(x, **summe))
     return render_template("monat.html", uebersicht=uebersicht, **ctx)
+
+
+TAG_GRUENDE = ("Buchung vergessen", "Keyfob vergessen", "laut Mitarbeiter", "laut Krankmeldung",
+               "laut Urlaubsantrag", "Terminal gestört", "Berufsschule", "Absprache mit Vorgesetztem")
+
+
+@app.route("/zeit/tag")
+def tag():
+    """Tagesfenster (Umbau Schritt 3): alles zu einem Mitarbeiter und Tag an einer Stelle --
+    Datensaetze korrigieren/anlegen, Abwesenheit, anderer Tagesplan."""
+    uid = _int("user")
+    heute = _heute()
+    datum = _datum("datum", heute)
+    mu = db.eins(f"SELECT id, `user` AS name FROM {db.m}.`user` WHERE id = %s", (uid,)) if uid else None
+    if mu is None:
+        return redirect(url_for("monat"))
+    r = zeit_rechnung.Rechnung(db)
+    zeilen, summe = r.monat(uid, datum.year, datum.month, heute)
+    z = next(x for x in zeilen if x["datum"] == datum)
+    naechster_pruefen = next((x["datum"] for x in zeilen if x["datum"] > datum and x["warnung"]), None)
+    b, e = zeit_db_tag_grenzen(datum)
+    saetze = db.datensaetze(uid, b, e)
+    darf_korr = db.hat_recht(g.mu["id"], RECHT_KORREKTUR)
+
+    def stand(t):
+        return t.strftime("%Y-%m-%d %H:%M:%S") if t else ""
+    for s_ in saetze:
+        s_["stand_kommen"], s_["stand_gehen"] = stand(s_["kommen"]), stand(s_["gehen"])
+        s_["art_korr"] = {"automatisch_beendet": "gehen_nachtragen", "abgeschlossen": "stempelzeit"}.get(s_["status"])
+    return render_template(
+        "tag.html", ma=mu, datum=datum, z=z, summe=summe, saetze=saetze,
+        abwesenheiten=db.abwesenheiten_tag(uid, datum), abweichung=db.abweichung_tag(uid, datum),
+        arten=[a for a in db.abwesenheitsarten() if a["aktiv"]],
+        tagesplaene=[t for t in db.tagesplaene() if t["aktiv"]],
+        urlaub=db.urlaub_rest(uid, datum.year), gruende=TAG_GRUENDE, heute=heute,
+        vortag=datum - datetime.timedelta(days=1), folgetag=datum + datetime.timedelta(days=1),
+        naechster_pruefen=naechster_pruefen, darf_korr=darf_korr,
+        darf_stamm=db.hat_recht(g.mu["id"], RECHT_STAMMDATEN), darf_klaeren=db.hat_recht(g.mu["id"], RECHT_KLAEREN),
+        seite="monat", hilfe="Tag")
 
 
 @app.route("/zeit/summen")

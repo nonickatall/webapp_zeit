@@ -9,6 +9,7 @@ SQL ausschliesslich parametrisiert.
 import configparser
 import datetime
 import os
+import threading
 from zoneinfo import ZoneInfo
 
 import pymysql
@@ -107,6 +108,33 @@ class ZeitDB:
         self.cfg = cfg
         self.z = cfg["sql_db_zeit"]
         self.m = cfg["sql_db_myhome"]
+        self._lokal = threading.local()
+
+    # Eine Verbindung je Seitenaufruf (Webapp: sitzung_beginnen/sitzung_ende um jeden Request).
+    # Ohne Sitzung (Kommandozeilen-Werkzeuge) wie bisher eine Verbindung je Abfrage.
+    # Verbindungsaufbau kostet ein Vielfaches einer Abfrage -- die Monatsuebersicht stellt
+    # pro Mitarbeiter rund ein Dutzend Abfragen.
+    def sitzung_beginnen(self):
+        self.sitzung_ende()
+        self._lokal.conn = None
+        self._lokal.aktiv = True
+
+    def sitzung_ende(self):
+        c = getattr(self._lokal, "conn", None)
+        self._lokal.conn, self._lokal.aktiv = None, False
+        if c is not None:
+            try:
+                c.close()
+            except Exception:
+                pass
+
+    def _ausleihen(self):
+        """(conn, selbst_schliessen)"""
+        if not getattr(self._lokal, "aktiv", False):
+            return self._conn(), True
+        if self._lokal.conn is None:
+            self._lokal.conn = self._conn()
+        return self._lokal.conn, False
 
     def _conn(self):
         return pymysql.connect(host=self.cfg["sql_address"], user=self.cfg["sql_user"],
@@ -115,13 +143,19 @@ class ZeitDB:
                                cursorclass=pymysql.cursors.DictCursor)
 
     def abfrage(self, sql, args=()):
-        conn = self._conn()
+        conn, schliessen = self._ausleihen()
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, args)
                 return cur.fetchall()
+        except Exception:
+            if not schliessen:          # kaputte Sitzungsverbindung nicht weiterverwenden
+                self._lokal.conn = None
+                schliessen = True
+            raise
         finally:
-            conn.close()
+            if schliessen:
+                conn.close()
 
     def eins(self, sql, args=()):
         r = self.abfrage(sql, args)
@@ -148,7 +182,7 @@ class ZeitDB:
             (befehl, uid)) is not None
 
     def logdaten(self, berechtigter, anforderung, aktion, parameter):
-        conn = self._conn()
+        conn = self._conn()     # eigene Verbindung: schreibt auch, wenn die Sitzungsverbindung gestoert ist
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -229,9 +263,12 @@ class ZeitDB:
         ze = self.eins(
             f"SELECT ze.*, u.`user` AS name, (ze.buchung_kommen_id IS NULL) AS manuell, "
             f"zr.pause_minuten AS regel_pause, zr.pause_ab_minuten AS regel_pause_ab, zr.gueltig_ab AS regel_ab, "
-            f"TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS regel_soll, ra.begruendung AS regel_begruendung "
+            f"TIME_FORMAT(zr.sollbeginn, '%%H:%%i') AS regel_soll, ra.begruendung AS regel_begruendung, "
+            f"tp.nr AS tp_nr, tp.name AS tp_name, tp.pause1_minuten AS tp_p1, tp.pause1_ab_minuten AS tp_ab1, "
+            f"tp.pause2_minuten AS tp_p2, tp.pause2_ab_minuten AS tp_ab2 "
             f"FROM {self.z}.zeiterfassung ze "
             f"LEFT JOIN {self.m}.`user` u ON u.id = ze.user_id "
+            f"LEFT JOIN {self.z}.tagesplan tp ON tp.id = ze.tagesplan_id "
             f"LEFT JOIN {self.z}.user_zeitregel zr ON zr.id = ze.zeitregel_id "
             f"LEFT JOIN {self.z}.zeiterfassung_auftrag ra ON ra.zeitregel_id = zr.id AND ra.art = 'zeitregel' "
             f"AND ra.ergebnis = 'ausgefuehrt' "
@@ -326,6 +363,33 @@ class ZeitDB:
             f"SELECT s.*, u.`user` AS bearbeiter FROM {self.z}.stammdaten_aenderung s "
             f"LEFT JOIN {self.m}.`user` u ON u.id = s.geaendert_von "
             f"WHERE s.tabelle IN ({platz}) ORDER BY s.id DESC LIMIT %s", (*tabellen, anzahl))
+
+    def abwesenheiten_tag(self, uid, datum):
+        return self.abfrage(
+            f"SELECT a.*, t.kuerzel, t.name AS art_name, t.farbe, e.`user` AS ersteller FROM {self.z}.abwesenheit a "
+            f"JOIN {self.z}.abwesenheitsart t ON t.id = a.art_id LEFT JOIN {self.m}.`user` e ON e.id = a.erstellt_von "
+            f"WHERE a.user_id = %s AND a.datum = %s AND a.aufgehoben_am IS NULL ORDER BY a.id", (uid, datum))
+
+    def abweichung_tag(self, uid, datum):
+        return self.eins(
+            f"SELECT a.*, tp.nr, tp.name, tp.farbe FROM {self.z}.tag_abweichung a "
+            f"JOIN {self.z}.tagesplan tp ON tp.id = a.tagesplan_id "
+            f"WHERE a.user_id = %s AND a.datum = %s AND a.aufgehoben_am IS NULL", (uid, datum))
+
+    def urlaub_rest(self, uid, jahr):
+        """Urlaubskonto eines Jahres: Anspruch, Uebertrag, genommen (ganz 1, halb 0,5), Rest. None ohne Konto."""
+        k = self.eins(f"SELECT anspruch_tage, uebertrag_tage FROM {self.z}.urlaubskonto WHERE user_id = %s "
+                      f"AND jahr = %s", (uid, jahr))
+        g = self.eins(
+            f"SELECT COALESCE(SUM(CASE a.umfang WHEN 'ganz' THEN 1 WHEN 'halb' THEN 0.5 ELSE 0 END), 0) AS tage "
+            f"FROM {self.z}.abwesenheit a JOIN {self.z}.abwesenheitsart t ON t.id = a.art_id "
+            f"WHERE a.user_id = %s AND YEAR(a.datum) = %s AND a.aufgehoben_am IS NULL AND t.urlaub = 1", (uid, jahr))
+        genommen = float(g["tage"] or 0)
+        if k is None:
+            return {"konto": False, "genommen": genommen}
+        gesamt = float(k["anspruch_tage"]) + float(k["uebertrag_tage"])
+        return {"konto": True, "anspruch": float(k["anspruch_tage"]), "uebertrag": float(k["uebertrag_tage"]),
+                "gesamt": gesamt, "genommen": genommen, "rest": gesamt - genommen}
 
     def plan_mitarbeiter(self):
         """Mitarbeiter mit (nicht aufgehobener) Wochenplan-Zuordnung -- Auswahl der Monatsuebersicht."""

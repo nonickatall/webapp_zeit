@@ -188,3 +188,10 @@ span.abw { display: inline-block; padding: 0 4px; border-radius: 3px; color: #00
     table.monat td, table.monat th { font-size: 10px; }
     tr.klickbar:hover td { background: inherit; }
 }
+/* Tagesfenster (Umbau Schritt 3) */
+table.tag-kopf th { width: 120px; }
+.tag-satz { border: 1px solid #dee2e6; border-radius: 3px; background: #fafbfc; padding: 6px 8px; margin: 6px 0; }
+.tag-satz .filter-zeile { margin: 6px 0 0; }
+.tag-satz-kopf { font-size: 13px; }
+details.tag-neu { margin: 8px 0; }
+details.tag-neu summary { cursor: pointer; color: #1565c0; font-weight: bold; font-size: 13px; padding: 4px 0; }

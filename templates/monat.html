@@ -28,7 +28,7 @@
 <th>Soll</th><th>Ist</th><th>TSaldo</th><th>Saldo</th><th>Abw</th><th>Bemerkung</th></tr></thead>
 <tbody>{% for z in zeilen %}
 <tr class="{{ 'frei' if z.wochenende or z.feiertag }} {{ 'heute' if z.datum == heute }} {{ 'zukunft' if z.zukunft }} klickbar"
-    data-href="{{ url_for('datensaetze', user=ma.id, von=z.datum.isoformat(), bis=z.datum.isoformat()) }}" title="Datensätze dieses Tages">
+    data-href="{{ url_for('tag', user=ma.id, datum=z.datum.isoformat()) }}" title="Tag bearbeiten">
 <td class="zahl tag">{{ z.datum.strftime('%d') }}</td><td class="tag">{{ z.wt }}</td>
 <td>{% if z.tp %}<span class="farbfeld" style="background: {{ z.tp.farbe }}"></span> {{ z.tp.nr }}{% else %}<span class="notiz">kein Plan</span>{% endif %}</td>
 <td class="zahl">{{ z.beginn.strftime('%H:%M') if z.beginn else '' }}</td>
@@ -47,7 +47,7 @@
 <th class="zahl">{{ saldo(summe.tsaldo) }}</th><th class="zahl">{{ saldo(summe.saldo_ende) }}</th>
 <th colspan="2">davon Arbeit {{ summe.arbeit | dauer }}, Gutschrift {{ summe.gutschrift | dauer }} · Soll ganzer Monat {{ summe.soll_monat | dauer }}</th></tr></tfoot>
 </table></div>
-{% if summe.warnungen %}<p class="fuss"><span class="warnung">!</span> {{ summe.warnungen }} Tag(e) bitte prüfen – Klick auf den Tag zeigt die Datensätze.</p>{% endif %}
+{% if summe.warnungen %}<p class="fuss"><span class="warnung">!</span> {{ summe.warnungen }} Tag(e) bitte prüfen – Klick auf den Tag öffnet das Tagesfenster.</p>{% endif %}
 {% if summe.saldo_vormonat is none %}<p class="fuss">Ohne Startsaldo wird kein laufender Saldo gerechnet (Stammdaten → Startsalden).</p>{% endif %}
 <p class="fuss">Ist = Arbeit (netto) + Gutschrift (Feiertag, Abwesenheit). TSaldo = Ist − Soll; heute erst, wenn niemand mehr eingebucht ist.</p>
 
