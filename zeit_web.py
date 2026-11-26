@@ -809,6 +809,29 @@ def monat():
     return render_template("monat.html", uebersicht=uebersicht, **ctx)
 
 
+@app.route("/zeit/jahr")
+def jahr():
+    """Jahresuebersicht (Umbau Schritt 4): Raster Monat x Tag mit Abwesenheiten, Feiertagen und freien Tagen,
+    Monatssalden und Urlaubskonto. Klick auf einen Tag oeffnet das Tagesfenster."""
+    heute = _heute()
+    j = _int("jahr") or heute.year
+    if not 2000 <= j <= 2100:
+        j = heute.year
+    ma = db.plan_mitarbeiter()
+    uid = _int("user") or (ma[0]["id"] if ma else None)
+    ctx = {"jahr": j, "mitarbeiter_liste": ma, "uid": uid, "heute": heute, "seite": "jahr",
+           "hilfe": "Jahresuebersicht"}
+    mu = db.eins(f"SELECT id, `user` AS name FROM {db.m}.`user` WHERE id = %s", (uid,)) if uid else None
+    if mu is None:
+        return render_template("jahr.html", ma=None, **ctx)
+    monate, zaehlung = zeit_rechnung.jahr_zellen(zeit_rechnung.Rechnung(db), uid, j, heute)
+    ids = [x["id"] for x in ma]
+    i = ids.index(uid) if uid in ids else None
+    return render_template("jahr.html", ma=mu, monate=monate, zaehlung=zaehlung, urlaub=db.urlaub_rest(uid, j),
+                           vorheriger=ma[i - 1]["id"] if i else None,
+                           naechster=ma[i + 1]["id"] if i is not None and i + 1 < len(ma) else None, **ctx)
+
+
 TAG_GRUENDE = ("Buchung vergessen", "Keyfob vergessen", "laut Mitarbeiter", "laut Krankmeldung",
                "laut Urlaubsantrag", "Terminal gestört", "Berufsschule", "Absprache mit Vorgesetztem")
 

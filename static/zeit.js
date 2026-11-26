@@ -7,7 +7,12 @@
     var els = document.querySelectorAll('[data-farbe]');
     for (var i = 0; i < els.length; i++) {
         var f = els[i].getAttribute('data-farbe');
-        if (/^#[0-9a-fA-F]{6}$/.test(f)) els[i].style.backgroundColor = f;
+        if (!/^#[0-9a-fA-F]{6}$/.test(f)) continue;
+        els[i].style.backgroundColor = f;
+        if (els[i].textContent.trim()) {   /* Schrift hell auf dunklem Grund */
+            var r = parseInt(f.substr(1, 2), 16), g = parseInt(f.substr(3, 2), 16), b = parseInt(f.substr(5, 2), 16);
+            els[i].style.color = (0.299 * r + 0.587 * g + 0.114 * b) < 140 ? '#fff' : '#000';
+        }
     }
 })();
 
@@ -479,8 +484,8 @@ Array.prototype.forEach.call(document.querySelectorAll('form.filter-zeile:not(.f
     });
 })();
 
-/* Tabellenzeilen mit data-href sind klickbar (Monatsuebersicht: Tag -> Datensaetze, Mitarbeiter -> Monat). */
-Array.prototype.forEach.call(document.querySelectorAll('tr[data-href]'), function (tr) {
+/* Zeilen/Zellen mit data-href sind klickbar (Monatsuebersicht: Tag -> Tagesfenster, Jahresuebersicht: Tag). */
+Array.prototype.forEach.call(document.querySelectorAll('tr[data-href], td[data-href]'), function (tr) {
     tr.addEventListener('click', function (e) {
         if (e.target.closest('a, button, input, select')) return;
         window.location.href = tr.getAttribute('data-href');

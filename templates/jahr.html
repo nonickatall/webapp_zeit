@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titel %}Jahresübersicht {{ jahr }}{% if ma %} – {{ ma.name }}{% endif %}{% endblock %}
+{% block inhalt %}
+{% macro saldo(m) %}{% if m is none %}{% else %}<span class="{{ 'minus' if m < 0 else 'plus' if m > 0 }}">{{ '+' if m > 0 }}{{ m | dauer }}</span>{% endif %}{% endmacro %}
+{% macro tage(x) %}{{ ('%.1f' % x).replace('.0', '').replace('.', ',') }}{% endmacro %}
+
+<form method="get" action="{{ url_for('jahr') }}" class="filter-zeile kein-druck">
+    <div class="filter-item"><label for="f_ma">Mitarbeiter</label>
+        <select id="f_ma" name="user" onchange="this.form.submit()">
+            {% for x in mitarbeiter_liste %}<option value="{{ x.id }}" {{ 'selected' if uid == x.id }}>{{ x.name | mitarbeiter(x.id) }}</option>{% endfor %}
+        </select></div>
+    <div class="filter-item"><label for="f_jahr">Jahr</label><input id="f_jahr" type="number" name="jahr" min="2000" max="2100" value="{{ jahr }}" class="schmal" onchange="this.form.submit()"></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('jahr', user=uid, jahr=jahr - 1) }}">◀ {{ jahr - 1 }}</a></div>
+    <div class="filter-item"><label>&nbsp;</label><a class="btn-csv" href="{{ url_for('jahr', user=uid, jahr=jahr + 1) }}">{{ jahr + 1 }} ▶</a></div>
+    {% if ma %}
+    <div class="filter-item"><label>&nbsp;</label>{% if vorheriger %}<a class="btn-filter-set" href="{{ url_for('jahr', user=vorheriger, jahr=jahr) }}">◀ Mitarbeiter</a>{% endif %}</div>
+    <div class="filter-item"><label>&nbsp;</label>{% if naechster %}<a class="btn-filter-set" href="{{ url_for('jahr', user=naechster, jahr=jahr) }}">Mitarbeiter ▶</a>{% endif %}</div>
+    {% endif %}
+    <div class="filter-item"><label>&nbsp;</label><button type="button" class="btn-csv" onclick="window.print()">Drucken</button></div>
+</form>
+
+{% if not ma %}
+<p class="leer">Noch keinem Mitarbeiter ist ein Wochenplan zugeordnet (Stammdaten → Zuordnung).</p>
+{% else %}
+<h2 class="abschnitt-titel"><span>{{ ma.name }} ({{ ma.id }}) – Jahresübersicht {{ jahr }}</span>
+    <span class="zusatz">{% if urlaub.konto %}Urlaub: Anspruch {{ tage(urlaub.anspruch) }} + Übertrag {{ tage(urlaub.uebertrag) }} = {{ tage(urlaub.gesamt) }}, genommen/geplant {{ tage(urlaub.genommen) }}, <b>Rest {{ tage(urlaub.rest) }}</b>{% else %}Urlaub genommen/geplant {{ tage(urlaub.genommen) }} (kein Urlaubskonto){% endif %}</span></h2>
+<div class="table-wrap"><table class="jahr">
+<thead><tr><th class="monat-name"></th>{% for d in range(1, 32) %}<th>{{ d }}</th>{% endfor %}
+<th class="summe" title="Soll bis heute">Soll</th><th class="summe" title="Ist bis heute">Ist</th><th class="summe" title="Saldo am Monatsende bzw. heute">Saldo</th></tr></thead>
+<tbody>{% for m in monate %}
+<tr><th class="monat-name"><a href="{{ url_for('monat', user=ma.id, monat='%04d-%02d' % (jahr, m.monat)) }}" title="Monatsübersicht">{{ m.name }}</a></th>
+{% for z in m.zeilen %}{% set c = z.zelle %}
+<td class="tag {{ 'we' if z.wochenende and not c.farbe }} {{ 'heute' if z.datum == heute }}"{% if c.farbe %} data-farbe="{{ c.farbe }}"{% endif %}
+    data-href="{{ url_for('tag', user=ma.id, datum=z.datum.isoformat()) }}"
+    title="{{ z.wt }} {{ z.datum.strftime('%d.%m.%Y') }}{% for t in c.titel %} · {{ t }}{% endfor %}">{{ c.text }}{% if z.warnung %}<span class="warn">!</span>{% endif %}</td>
+{% endfor %}{% for _ in range(31 - m.zeilen | length) %}<td class="nicht"></td>{% endfor %}
+<td class="zahl">{{ m.summe.soll | dauer if m.summe.soll else '' }}</td><td class="zahl">{{ m.summe.ist | dauer if m.summe.ist else '' }}</td>
+<td class="zahl">{{ saldo(m.summe.saldo_ende) }}</td></tr>
+{% endfor %}</tbody>
+</table></div>
+
+<div class="jahr-legende">
+{% for k in zaehlung %}<span><span class="abw" data-farbe="{{ k.farbe }}">{{ k.kuerzel }}</span> [{{ tage(k.tage) }}{% if k.minuten %}{{ ' + ' if k.tage }}{{ k.minuten | dauer }} h{% endif %}] {{ k.name }}</span>{% endfor %}
+{% if not zaehlung %}<span class="notiz">Keine Abwesenheiten und Feiertage in {{ jahr }}.</span>{% endif %}
+</div>
+<p class="fuss">Farbig: Abwesenheiten (Kürzel), Feiertage (FT) und freie Tage in der Farbe ihres Tagesplans. „!“ = Tag bitte prüfen.
+Klick auf einen Tag öffnet das Tagesfenster, Klick auf den Monat die Monatsübersicht. Gezählt werden alle eingetragenen Tage, auch künftige (geplanter Urlaub).</p>
+{% endif %}
+{% endblock %}

@@ -8,7 +8,8 @@ Nur lesen. Regeln (Konzept Zeiterfassung/umbau_soll_saldo.md, Abschnitt 3):
                Art mit Gutschrift "keine": 0)
   Ist        = Arbeit + Gutschrift
   TSaldo     = Ist - Soll                           (erst ab heute; heute nicht, solange jemand da ist)
-  Saldo      = Saldo Vortag + TSaldo, Start: Monatsabschluss bzw. Startsaldo (der spaetere gilt)
+  Saldo      = Saldo Vortag + TSaldo, Start: Monatsabschluss bzw. Startsaldo (der spaetere gilt);
+               ohne beides 0:00 ab der ersten Wochenplan-Zuordnung
 """
 import datetime
 
@@ -160,6 +161,16 @@ class Rechnung:
             f"SELECT stichtag, minuten FROM {self.db.z}.saldo_start WHERE user_id = %s AND aktiv = 1 "
             f"AND stichtag BETWEEN %s AND %s", (uid, von, bis))}
         saldo = None
+        summe_start = "start" if start is not None else None
+        if start is None:
+            # weder Monatsabschluss noch Startsaldo: ab der ersten Zuordnung mit 0:00
+            r = self.db.eins(f"SELECT MIN(gueltig_ab) AS ab FROM {self.db.z}.user_wochenplan WHERE user_id = %s "
+                             f"AND aufgehoben_am IS NULL", (uid,))
+            ab = r["ab"] if r else None
+            if ab is not None and ab < von:
+                start, summe_start = (ab, 0), "zuordnung"
+            elif ab is not None and ab <= bis and ab not in neu:
+                neu[ab], summe_start = 0, "zuordnung"
         if start is not None:
             s_tag, saldo = start
             if s_tag < von:
@@ -196,5 +207,45 @@ class Rechnung:
         letzte = [z["saldo"] for z in zeilen if z["saldo"] is not None]
         summe["saldo_ende"] = letzte[-1] if letzte else None
         summe["saldo_vormonat"] = saldo_vormonat
+        summe["start_quelle"] = summe_start
         summe["soll_monat"] = sum(z["soll"] or 0 for z in zeilen)
         return zeilen, summe
+
+
+def jahr_zellen(rechnung, uid, jahr, heute):
+    """Jahresuebersicht: je Monat die Tageszeilen (fuer das Raster) und die Monatssummen,
+    dazu die Zaehlung der Abwesenheiten (ganz 1, halb 0,5; Stunden getrennt in Minuten)."""
+    monate, zaehlung = [], {}
+    for m in range(1, 13):
+        zeilen, summe = rechnung.monat(uid, jahr, m, heute)
+        for z in zeilen:
+            zelle = {"farbe": None, "text": "", "titel": []}
+            if z["tp"]:
+                zelle["titel"].append(f"Tagesplan {z['tp']['nr']} {z['tp']['name']}")
+            for a in z["abw"]:
+                if a["kuerzel"] == "FT":
+                    continue
+                zelle["farbe"] = zelle["farbe"] or a["farbe"]
+                zelle["text"] = zelle["text"] or a["kuerzel"] + ("½" if a.get("umfang") == "halb" else "")
+                zelle["titel"].append(a["name"] + (" (halb)" if a.get("umfang") == "halb" else
+                                                   " (Stunden)" if a.get("umfang") == "stunden" else ""))
+                k = zaehlung.setdefault(a["kuerzel"], {"kuerzel": a["kuerzel"], "name": a["name"], "farbe": a["farbe"],
+                                                       "tage": 0, "minuten": 0})
+                if a.get("umfang") == "stunden":
+                    k["minuten"] += a["minuten"]
+                else:
+                    k["tage"] += 0.5 if a.get("umfang") == "halb" else 1
+            if z["feiertag"]:
+                zelle["titel"].append(z["feiertag"])
+                if zelle["farbe"] is None:
+                    zelle["farbe"], zelle["text"] = rechnung.ft_farbe, "FT"
+                k = zaehlung.setdefault("FT", {"kuerzel": "FT", "name": "Feiertag", "farbe": rechnung.ft_farbe,
+                                               "tage": 0, "minuten": 0})
+                k["tage"] += 1
+            if zelle["farbe"] is None and z["tp"] and (z["tp"]["frei"] or not z["tp"]["soll_minuten"]):
+                zelle["farbe"] = z["tp"]["farbe"]
+            if z["warnung"]:
+                zelle["titel"].append(", ".join(z["warnung"]))
+            z["zelle"] = zelle
+        monate.append({"monat": m, "name": MONATE[m - 1], "zeilen": zeilen, "summe": summe})
+    return monate, sorted(zaehlung.values(), key=lambda k: (k["kuerzel"] == "FT", k["kuerzel"]))
