@@ -520,14 +520,20 @@ STAMMDATEN_FELDER = {
 # Felder, die als Stunden "h:mm" (auch "-26:44") eingegeben werden duerfen -> Minuten
 STUNDEN_FELDER = {"soll_minuten", "pause1_ab_minuten", "pause2_ab_minuten", "minuten"}
 STUNDEN_RE = re.compile(r"^([+-]?)(\d{1,4}):([0-5]\d)$")
+DEZIMAL_RE = re.compile(r"^([+-]?)(\d{1,4})[.,](\d{1,2})$")
 
 
 def _stunden_minuten(v):
-    t = str(v if v is not None else "").strip().replace(",", ":")
+    """h:mm oder Dezimalstunden (5,5 / 5.5 = 5:30) -> Minuten."""
+    t = str(v if v is not None else "").strip()
     m = STUNDEN_RE.match(t)
-    if not m:
-        return t     # Zahl (Minuten) oder ungueltig -> der Dienst prueft
-    minuten = int(m.group(2)) * 60 + int(m.group(3))
+    if m:
+        minuten = int(m.group(2)) * 60 + int(m.group(3))
+    else:
+        m = DEZIMAL_RE.match(t)
+        if not m:
+            return t     # Zahl (Minuten) oder ungueltig -> der Dienst prueft
+        minuten = round(float(m.group(2) + "." + m.group(3)) * 60)
     return -minuten if m.group(1) == "-" else minuten
 
 

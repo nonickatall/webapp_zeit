@@ -28,7 +28,7 @@
         {% for m in alle_user %}<option value="{{ m.id }}" {{ 'selected' if gewaehlt == m.id }}>{{ m.name | mitarbeiter(m.id) }}</option>{% endfor %}
     </select>
 {% endmacro %}
-{% macro farbfeld(farbe) %}<span class="farbfeld" style="background: {{ farbe }}"></span>{% endmacro %}
+{% macro farbfeld(farbe) %}<span class="farbfeld" data-farbe="{{ farbe }}"></span>{% endmacro %}
 
 <nav class="unterreiter">
     {% for k, t in teile.items() %}<a href="{{ url_for('stammdaten', teil=k) }}" class="{{ 'active' if k == teil }}">{{ t }}</a>{% endfor %}
@@ -40,18 +40,18 @@
 <h2 class="abschnitt-titel"><span id="titel-tagesplan">Tagesplan anlegen / ändern</span><span class="zusatz">Stunden als h:mm, Pausen in Minuten; „ab“ = Anwesenheit am Tag</span></h2>
 <form id="form-tagesplan" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Tagesplan gespeichert">
     <input type="hidden" name="art" value="tagesplan"><input type="hidden" name="id" value="">
-    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="schmal"></div>
+    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="nr"></div>
     <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required></div>
     <div class="filter-item"><label>Farbe</label><input type="color" name="farbe" value="#1f3a93"></div>
-    <div class="filter-item"><label>Soll</label><input type="text" name="soll_minuten" value="8:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item"><label>Soll</label><input type="text" name="soll_minuten" value="8:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
     {{ haken('frei', 'freier Tag', False) }}
     <div class="filter-item"><label>Sollbeginn</label><input type="text" class="uhrzeit" name="sollbeginn" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5"></div>
     {{ haken('abschneiden', 'vorher nicht anrechnen', False) }}
     <div class="filter-item"><label>Kernzeit bis</label><input type="text" class="uhrzeit" name="kernzeit_ende" pattern="{{ zeit_muster }}" placeholder="hh:mm" maxlength="5"></div>
     <div class="filter-item"><label>Pause 1 (min)</label><input type="number" name="pause1_minuten" min="0" max="240" value="30" class="schmal"></div>
-    <div class="filter-item"><label>ab</label><input type="text" name="pause1_ab_minuten" value="6:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item"><label>ab</label><input type="text" name="pause1_ab_minuten" value="6:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
     <div class="filter-item"><label>Pause 2 (min)</label><input type="number" name="pause2_minuten" min="0" max="240" value="15" class="schmal"></div>
-    <div class="filter-item"><label>ab</label><input type="text" name="pause2_ab_minuten" value="9:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item"><label>ab</label><input type="text" name="pause2_ab_minuten" value="9:00" pattern="{{ stunden_muster }}" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 5:30 oder 5,5"></div>
     {{ haken('aktiv', 'aktiv', True) }}
     {{ knoepfe() }}
 </form>
@@ -60,9 +60,9 @@
 <h2 class="abschnitt-titel"><span>Tagespläne ({{ tagesplaene | length }})</span></h2>
 {% if not tagesplaene %}<p class="leer">Noch keine Tagespläne.</p>{% else %}
 <div class="table-wrap"><table>
-<thead><tr><th>Nr.</th><th></th><th>Name</th><th>Soll</th><th>Sollbeginn</th><th>vorher nicht anrechnen</th><th>Kernzeit bis</th><th>Pause 1</th><th>Pause 2</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
+<thead><tr><th class="nr">Nr.</th><th>Name</th><th>Soll</th><th>Sollbeginn</th><th>vorher nicht anrechnen</th><th>Kernzeit bis</th><th>Pause 1</th><th>Pause 2</th><th>aktiv</th>{% if darf %}<th></th>{% endif %}</tr></thead>
 <tbody>{% for t in tagesplaene %}
-<tr class="{{ 'abgeloest' if not t.aktiv }}"><td class="zahl">{{ t.nr }}</td><td>{{ farbfeld(t.farbe) }}</td><td>{{ t.name }}{% if t.frei %} <span class="marke grau">frei</span>{% endif %}</td>
+<tr class="{{ 'abgeloest' if not t.aktiv }}"><td class="nr">{{ farbfeld(t.farbe) }} {{ t.nr }}</td><td>{{ t.name }}{% if t.frei %} <span class="marke grau">frei</span>{% endif %}</td>
 <td class="zahl">{{ t.soll_minuten | dauer }}</td><td>{{ t.sollbeginn_hhmm or '–' }}</td><td>{{ ja(t.abschneiden) }}</td><td>{{ t.kernzeit_ende_hhmm or '–' }}</td>
 <td>{% if t.pause1_minuten %}{{ t.pause1_minuten }} min ab {{ t.pause1_ab_minuten | dauer }}{% else %}–{% endif %}</td>
 <td>{% if t.pause2_minuten %}+{{ t.pause2_minuten }} min ab {{ t.pause2_ab_minuten | dauer }}{% else %}–{% endif %}</td>
@@ -81,7 +81,7 @@
 {% if not tagesplaene %}<p class="leer">Bitte zuerst Tagespläne anlegen.</p>{% else %}
 <form id="form-wochenplan" class="filter-zeile formular korrektur-form stammdaten-form" autocomplete="off" data-url="{{ url }}" data-ok="Wochenplan gespeichert">
     <input type="hidden" name="art" value="wochenplan"><input type="hidden" name="id" value="">
-    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="schmal"></div>
+    <div class="filter-item"><label>Nr. *</label><input type="number" name="nr" min="1" max="9999" required class="nr"></div>
     <div class="filter-item"><label>Name *</label><input type="text" name="name" maxlength="64" required></div>
     {% for k, t in wochentage %}
     <div class="filter-item"><label>{{ t }} *</label>
@@ -257,7 +257,7 @@
     <input type="hidden" name="art" value="saldo_start">
     <div class="filter-item"><label>Mitarbeiter *</label>{{ mitarbeiter_auswahl('user_id') }}</div>
     <div class="filter-item"><label>Stichtag *</label><input type="date" name="stichtag" required></div>
-    <div class="filter-item"><label>Saldo *</label><input type="text" name="minuten" required pattern="{{ stunden_muster }}" placeholder="-26:44" class="schmal"></div>
+    <div class="filter-item"><label>Saldo *</label><input type="text" name="minuten" required pattern="{{ stunden_muster }}" placeholder="-26:44" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. -26:44 oder -26,75"></div>
     {{ haken('aktiv', 'aktiv', True) }}
     {{ knoepfe(True, "z.B. Übernahme smart time, Stand 31.10.2026") }}
 </form>

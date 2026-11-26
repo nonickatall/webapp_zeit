@@ -128,6 +128,8 @@ code { font-family: Consolas, monospace; }
 /* ---------------- Formulare fuer Auftraege (Stufe B) ---------------- */
 .filter-zeile.formular { background: #fff; border: 1px solid #dee2e6; }
 .filter-item input.schmal { width: 80px; }
+.filter-item input.nr { width: 56px; }
+th.nr, td.nr { width: 1%; white-space: nowrap; }
 .filter-item.breit { flex: 1; min-width: 240px; }
 .filter-item.breit input { width: 100%; }
 .ergebnis { padding: 6px 10px; border-radius: 3px; margin: -4px 0 10px; font-weight: bold; }

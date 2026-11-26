@@ -1,6 +1,16 @@
 /* Nach Leerlauf zur Anmeldung wechseln. Verbindlich ist der Server: die Sitzung
    laeuft dort nach derselben Zeit ohne Seitenaufruf ab. Deshalb zaehlt auch hier
    nur der Seitenaufruf (nicht Klicks ohne Anfrage) -- das raeumt nur den Bildschirm. */
+/* Farben (Tagesplan, Abwesenheit): die CSP erlaubt keine style-Attribute im HTML,
+   daher traegt das Template data-farbe und das Skript setzt die Farbe. */
+(function () {
+    var els = document.querySelectorAll('[data-farbe]');
+    for (var i = 0; i < els.length; i++) {
+        var f = els[i].getAttribute('data-farbe');
+        if (/^#[0-9a-fA-F]{6}$/.test(f)) els[i].style.backgroundColor = f;
+    }
+})();
+
 (function () {
     var sek = parseInt(document.body.getAttribute('data-leerlauf-sek') || '0', 10);
     if (!sek) return;
@@ -488,12 +498,24 @@ Array.prototype.forEach.call(document.querySelectorAll('tr[data-href]'), functio
         if (h > 23 || min > 59) return v;
         return (h < 10 ? '0' : '') + h + ':' + (min < 10 ? '0' : '') + min;
     }
-    function alle(form) {
-        Array.prototype.forEach.call(form.querySelectorAll('input.uhrzeit'), function (el) { el.value = normal(el.value); });
+    /* Dauer (Soll, Saldo, Stunden): "5,5"/"5.5" = 5:30 (Dezimalstunden), "8" -> 8:00, "-26,75" -> -26:45 */
+    function dauer(v) {
+        var t = (v || '').trim(), m = /^([+-]?)(\d{1,4})(?:[.,](\d{1,2}))?$/.exec(t);
+        if (!m) return v;
+        var min = Math.round(parseFloat(m[2] + '.' + (m[3] || '0')) * 60);
+        return (m[1] === '-' && min ? '-' : '') + Math.floor(min / 60) + ':' + ('0' + min % 60).slice(-2);
     }
-    document.addEventListener('blur', function (e) {
-        if (e.target.matches && e.target.matches('input.uhrzeit')) e.target.value = normal(e.target.value);
-    }, true);
+    function eines(el) {
+        if (!el.matches) return;
+        if (el.matches('input.uhrzeit')) el.value = normal(el.value);
+        else if (el.matches('input.dauer')) el.value = dauer(el.value);
+    }
+    function alle(form) {
+        Array.prototype.forEach.call(form.querySelectorAll('input.uhrzeit, input.dauer'), eines);
+    }
+    document.addEventListener('blur', function (e) { eines(e.target); }, true);
+    /* Enter im Feld: vor der Formatpruefung des Browsers umwandeln (blur kommt dabei nicht) */
+    document.addEventListener('keydown', function (e) { if (e.key === 'Enter') eines(e.target); }, true);
     document.addEventListener('submit', function (e) { alle(e.target); }, true);
 })();
 

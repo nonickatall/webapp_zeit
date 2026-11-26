@@ -25,7 +25,7 @@
 <h2 class="abschnitt-titel"><span>{{ ma.name }} ({{ ma.id }}) – {{ wt[datum.weekday()] }}, {{ datum.strftime('%d.%m.%Y') }}</span>
     <span class="zusatz">{% if z.feiertag %}Feiertag: {{ z.feiertag }}{% endif %}</span></h2>
 <div class="table-wrap"><table class="eigenschaften tag-kopf">
-<tr><th>Tagesplan</th><td>{% if z.tp %}<span class="farbfeld" style="background: {{ z.tp.farbe }}"></span> {{ z.tp.nr }} {{ z.tp.name }}{% if abweichung %} <span class="marke gelb">für diesen Tag geändert</span>{% endif %}{% else %}<span class="marke rot">kein Wochenplan zugeordnet</span>{% endif %}</td></tr>
+<tr><th>Tagesplan</th><td>{% if z.tp %}<span class="farbfeld" data-farbe="{{ z.tp.farbe }}"></span> {{ z.tp.nr }} {{ z.tp.name }}{% if abweichung %} <span class="marke gelb">für diesen Tag geändert</span>{% endif %}{% else %}<span class="marke rot">kein Wochenplan zugeordnet</span>{% endif %}</td></tr>
 <tr><th>Soll</th><td>{{ z.soll | dauer if z.soll is not none else '–' }}</td></tr>
 <tr><th>Ist</th><td>{{ z.ist | dauer if z.ist is not none else '–' }} <span class="notiz">(Arbeit {{ z.arbeit | dauer }} + Gutschrift {{ z.gutschrift | dauer }})</span></td></tr>
 <tr><th>Tagessaldo</th><td>{{ saldo(z.tsaldo) }}{% if z.laeuft %} <span class="notiz">läuft noch</span>{% endif %}</td></tr>
@@ -79,7 +79,7 @@
 <h2 class="abschnitt-titel"><span>Abwesenheit</span>
     <span class="zusatz">{% if urlaub.konto %}Urlaub {{ datum.year }}: {{ '%g' % urlaub.genommen }} von {{ '%g' % urlaub.gesamt }} Tagen genommen, Rest {{ '%g' % urlaub.rest }}{% else %}Urlaub {{ datum.year }}: {{ '%g' % urlaub.genommen }} Tage genommen, kein Urlaubskonto{% endif %}</span></h2>
 {% for a in abwesenheiten %}
-<div class="tag-satz"><div class="tag-satz-kopf"><span class="abw" style="background: {{ a.farbe }}">{{ a.kuerzel }}</span> {{ a.art_name }}
+<div class="tag-satz"><div class="tag-satz-kopf"><span class="abw" data-farbe="{{ a.farbe }}">{{ a.kuerzel }}</span> {{ a.art_name }}
     · {{ {'ganz': 'ganzer Tag', 'halb': 'halber Tag'}.get(a.umfang) or ((a.minuten | dauer) ~ ' h') }}
     {% if a.notiz %}· {{ a.notiz }}{% endif %} <span class="notiz">({{ a.ersteller or '?' }}, {{ a.erstellt_am | zeit }})</span></div>
 {% if darf_stamm %}
@@ -102,7 +102,7 @@
         {% for a in arten %}<option value="{{ a.id }}" data-urlaub="{{ a.urlaub }}">{{ a.kuerzel }} – {{ a.name }}</option>{% endfor %}</select></div>
     <div class="filter-item"><label>Umfang</label><select name="umfang">
         <option value="ganz">ganzer Tag</option><option value="halb">halber Tag</option><option value="stunden">Stunden</option></select></div>
-    <div class="filter-item abw-stunden" hidden><label>Stunden *</label><input type="text" name="minuten" placeholder="h:mm" class="schmal"></div>
+    <div class="filter-item abw-stunden" hidden><label>Stunden *</label><input type="text" name="minuten" placeholder="h:mm" class="schmal dauer" title="h:mm oder Dezimalstunden, z.B. 3:30 oder 3,5"></div>
     <div class="filter-item abw-bis"><label>bis (Zeitraum)</label><input type="date" name="bis" value="{{ datum.isoformat() }}" min="{{ datum.isoformat() }}"></div>
     <div class="filter-item breit"><label>Notiz</label><input type="text" name="notiz" maxlength="255" list="gruende" placeholder="optional"></div>
     {{ knopf("Eintragen") }}

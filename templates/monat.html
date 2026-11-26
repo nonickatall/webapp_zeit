@@ -30,7 +30,7 @@
 <tr class="{{ 'frei' if z.wochenende or z.feiertag }} {{ 'heute' if z.datum == heute }} {{ 'zukunft' if z.zukunft }} klickbar"
     data-href="{{ url_for('tag', user=ma.id, datum=z.datum.isoformat()) }}" title="Tag bearbeiten">
 <td class="zahl tag">{{ z.datum.strftime('%d') }}</td><td class="tag">{{ z.wt }}</td>
-<td>{% if z.tp %}<span class="farbfeld" style="background: {{ z.tp.farbe }}"></span> {{ z.tp.nr }}{% else %}<span class="notiz">kein Plan</span>{% endif %}</td>
+<td>{% if z.tp %}<span class="farbfeld" data-farbe="{{ z.tp.farbe }}"></span> {{ z.tp.nr }}{% else %}<span class="notiz">kein Plan</span>{% endif %}</td>
 <td class="zahl">{{ z.beginn.strftime('%H:%M') if z.beginn else '' }}</td>
 <td>{{ '●' if z.mehr }}</td>
 <td class="zahl">{{ z.ende.strftime('%H:%M') if z.ende else ('läuft' if z.laeuft else '') }}</td>
@@ -39,7 +39,7 @@
 <td class="zahl">{{ z.ist | dauer if z.ist is not none and (z.ist or z.soll) else '' }}</td>
 <td class="zahl">{{ saldo(z.tsaldo) if z.tsaldo is not none and (z.soll or z.ist) else '' }}</td>
 <td class="zahl">{{ saldo(z.saldo) }}{% if z.saldo_neu %} <span class="notiz" title="Startsaldo">S</span>{% endif %}</td>
-<td>{% for a in z.abw %}<span class="abw" style="background: {{ a.farbe }}" title="{{ a.name }}">{{ a.kuerzel }}</span> {{ a.minuten | dauer }}{% if a.umfang == 'halb' %} ½{% endif %} {% endfor %}</td>
+<td>{% for a in z.abw %}<span class="abw" data-farbe="{{ a.farbe }}" title="{{ a.name }}">{{ a.kuerzel }}</span> {{ a.minuten | dauer }}{% if a.umfang == 'halb' %} ½{% endif %} {% endfor %}</td>
 <td class="notiz">{{ z.feiertag or '' }}{% if z.warnung %}{{ ' · ' if z.feiertag }}{{ z.warnung | join(', ') }}{% endif %}</td>
 </tr>
 {% endfor %}</tbody>
